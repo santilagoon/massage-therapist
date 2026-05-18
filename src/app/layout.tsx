@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Massage Booking MVP",
-  description: "Online appointment requests for therapeutic and sports massage.",
+  title: "Turnos de masaje",
+  description: "Reserva online de masajes terapeuticos y deportivos.",
 };
 
 export default function RootLayout({

@@ -381,13 +381,13 @@ export function BookingApp() {
 
   return (
     <main className="min-h-screen bg-[#f6f3ee] text-[#24211d]">
-      <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
+      <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-[#d9d0c3] py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#6f7b60]">
               {t.eyebrow}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-[#24211d] sm:text-4xl">
+            <h1 className="mt-2 text-2xl font-semibold leading-tight text-[#24211d] sm:text-4xl">
               {t.title}
             </h1>
           </div>
@@ -413,16 +413,16 @@ export function BookingApp() {
 
         <div className="grid flex-1 gap-6 py-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.65fr)]">
           <section className="flex flex-col gap-6">
-            <div className="grid gap-4 rounded-lg bg-[#e4d8c8] p-5 sm:grid-cols-[1fr_180px]">
+            <div className="grid gap-4 rounded-lg bg-[#e4d8c8] p-4 sm:grid-cols-[1fr_180px] sm:p-5">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#7f4e3b]">
                   {t.appName}
                 </p>
-                <p className="mt-3 max-w-2xl text-lg leading-8 text-[#4a443d]">
+                <p className="mt-3 max-w-2xl text-base leading-7 text-[#4a443d] sm:text-lg sm:leading-8">
                   {t.subtitle}
                 </p>
               </div>
-              <div className="flex min-h-36 items-end rounded-md bg-[linear-gradient(140deg,#5f7a68,#b16c4a_55%,#e8d7b7)] p-4 text-white">
+              <div className="flex min-h-28 items-end rounded-md bg-[linear-gradient(140deg,#5f7a68,#b16c4a_55%,#e8d7b7)] p-4 text-white sm:min-h-36">
                 <div>
                   <p className="text-sm font-semibold">{t.schedule}</p>
                   <p className="mt-2 text-xs uppercase tracking-[0.16em] opacity-85">
@@ -459,7 +459,7 @@ export function BookingApp() {
               <form
                 onSubmit={submitRequest}
                 noValidate
-                className="grid gap-5 rounded-lg border border-[#d9d0c3] bg-white p-5"
+                className="grid gap-5 rounded-lg border border-[#d9d0c3] bg-white p-4 sm:p-5"
               >
                 <div className="grid gap-4 md:grid-cols-3">
                   <Field label={t.service}>
@@ -485,8 +485,8 @@ export function BookingApp() {
                     />
                   </Field>
 
-                    <Field label={t.time}>
-                      <select
+                  <Field label={t.time}>
+                    <select
                       value={selectedSlot}
                       onChange={(event) => setSlot(event.target.value)}
                       className={inputClass}
@@ -649,22 +649,26 @@ export function BookingApp() {
             )}
           </section>
 
-          <aside className="rounded-lg border border-[#d9d0c3] bg-white p-5">
-            <h2 className="text-lg font-semibold">{t.adminTitle}</h2>
-            <div className="mt-4 space-y-3">
-              {appointments.slice(0, 5).map((appointment) => (
-                <AppointmentRow
-                  key={appointment.id}
-                  appointment={appointment}
-                  services={availableServices}
-                  locale={locale}
-                  t={t}
-                  compact
-                  onStatusChange={updateStatus}
-                />
-              ))}
-            </div>
-          </aside>
+          {activeTab === "book" ? (
+            <BookingInfoPanel t={t} />
+          ) : (
+            <aside className="hidden rounded-lg border border-[#d9d0c3] bg-white p-5 lg:block">
+              <h2 className="text-lg font-semibold">{t.adminTitle}</h2>
+              <div className="mt-4 space-y-3">
+                {appointments.slice(0, 5).map((appointment) => (
+                  <AppointmentRow
+                    key={appointment.id}
+                    appointment={appointment}
+                    services={availableServices}
+                    locale={locale}
+                    t={t}
+                    compact
+                    onStatusChange={updateStatus}
+                  />
+                ))}
+              </div>
+            </aside>
+          )}
         </div>
       </section>
     </main>
@@ -784,6 +788,31 @@ function AdminPanel({
         />
       ))}
     </div>
+  );
+}
+
+function BookingInfoPanel({ t }: { t: Record<string, string> }) {
+  return (
+    <aside className="rounded-lg border border-[#d9d0c3] bg-white p-4 sm:p-5">
+      <h2 className="text-lg font-semibold">{t.howItWorksTitle}</h2>
+      <ol className="mt-4 grid gap-3">
+        {[t.stepChoose, t.stepPending, t.stepEmail].map((step, index) => (
+          <li
+            key={step}
+            className="grid grid-cols-[2rem_1fr] items-start gap-3 rounded-md bg-[#f6f3ee] p-3 text-sm leading-6 text-[#4a443d]"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#36594a] text-sm font-semibold text-white">
+              {index + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-4 rounded-md border border-[#d9d0c3] p-3">
+        <p className="text-sm font-semibold text-[#24211d]">{t.privacyTitle}</p>
+        <p className="mt-2 text-sm leading-6 text-[#5b554e]">{t.privacyCopy}</p>
+      </div>
+    </aside>
   );
 }
 
@@ -1023,7 +1052,7 @@ function Field({
 }
 
 const inputClass =
-  "min-h-11 w-full rounded-md border border-[#bdb3a5] bg-white px-3 py-2 text-sm outline-none transition focus:border-[#36594a] focus:ring-2 focus:ring-[#36594a]/20";
+  "min-h-12 w-full rounded-md border border-[#bdb3a5] bg-white px-3 py-2 text-base outline-none transition focus:border-[#36594a] focus:ring-2 focus:ring-[#36594a]/20 sm:text-sm";
 
 function tabClass(active: boolean) {
   return [

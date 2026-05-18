@@ -184,6 +184,13 @@ export const translations = {
       "El turno se guardo correctamente, pero el email no pudo enviarse o aun no esta configurado.",
     schedule: "Lun a Vie, 9:00 a 19:00. Sabados configurables.",
     timezone: "Hora de Argentina",
+    howItWorksTitle: "Como funciona",
+    stepChoose: "Elegis servicio, fecha y horario disponible.",
+    stepPending: "El turno queda pendiente de aprobacion profesional.",
+    stepEmail: "Recibis un email cuando la masajista confirma o rechaza.",
+    privacyTitle: "Datos protegidos",
+    privacyCopy:
+      "La informacion del paciente solo se ve en el panel privado de la masajista.",
   },
   en: {
     appName: "Massage booking",
@@ -254,6 +261,13 @@ export const translations = {
       "The appointment was saved, but email could not be sent or is not configured yet.",
     schedule: "Mon to Fri, 9:00 to 19:00. Saturdays configurable.",
     timezone: "Argentina time",
+    howItWorksTitle: "How it works",
+    stepChoose: "Choose a service, date, and available time.",
+    stepPending: "The appointment stays pending professional approval.",
+    stepEmail: "You receive an email when the therapist confirms or declines.",
+    privacyTitle: "Protected data",
+    privacyCopy:
+      "Patient information is only visible in the therapist's private panel.",
   },
   ru: {
     appName: "Запись на массаж",
@@ -324,6 +338,13 @@ export const translations = {
       "Запись сохранена, но email не был отправлен или еще не настроен.",
     schedule: "Пн-Пт, 9:00-19:00. Суббота настраивается.",
     timezone: "Время Аргентины",
+    howItWorksTitle: "Как это работает",
+    stepChoose: "Выберите услугу, дату и доступное время.",
+    stepPending: "Запись ожидает подтверждения специалиста.",
+    stepEmail: "Вы получите email после подтверждения или отклонения.",
+    privacyTitle: "Защита данных",
+    privacyCopy:
+      "Данные пациента видны только в приватной панели специалиста.",
   },
 } satisfies Record<Locale, Record<string, string>>;
 
