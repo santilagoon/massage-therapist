@@ -86,6 +86,7 @@ export function BookingApp() {
   });
   const [formErrors, setFormErrors] = useState<BookingFormErrors>({});
   const [notice, setNotice] = useState("");
+  const [showAdminAccess, setShowAdminAccess] = useState(false);
 
   const t = translations[locale];
   const selectedService = findServiceInList(serviceId, availableServices);
@@ -204,6 +205,14 @@ export function BookingApp() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("admin") === "1") {
+      setShowAdminAccess(true);
+      setActiveTab("admin");
+    }
   }, []);
 
   async function refreshBusySlots(targetDate = date) {
@@ -441,11 +450,6 @@ export function BookingApp() {
             <div className="mx-auto grid w-full max-w-xl gap-3 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-4 text-left sm:grid-cols-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#737373]">
-                  {t.schedule}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#737373]">
                   {t.timezone}
                 </p>
               </div>
@@ -468,13 +472,15 @@ export function BookingApp() {
               >
                 {t.bookTab}
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("admin")}
-                className={tabClass(activeTab === "admin")}
-              >
-                {t.adminTab}
-              </button>
+              {adminUser || showAdminAccess ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("admin")}
+                  className={tabClass(activeTab === "admin")}
+                >
+                  {t.adminTab}
+                </button>
+              ) : null}
             </div>
 
             {activeTab === "book" ? (
@@ -952,12 +958,6 @@ function BookingInfoPanel({ t }: { t: Record<string, string> }) {
           </li>
         ))}
       </ol>
-      <div className="mt-4 rounded-2xl bg-[#fafafa] p-4 text-center">
-        <p className="text-sm font-semibold text-[#111111]">{t.privacyTitle}</p>
-        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#525252]">
-          {t.privacyCopy}
-        </p>
-      </div>
     </section>
   );
 }

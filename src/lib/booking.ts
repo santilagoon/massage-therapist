@@ -87,6 +87,23 @@ export const services: Service[] = [
       ru: "Расширенный сеанс для комплексной работы и отдельных зон.",
     },
   },
+  {
+    id: "body-rehabilitation",
+    slug: "body-rehabilitation",
+    durationMinutes: 60,
+    priceLabel: "ARS",
+    priceCents: null,
+    title: {
+      es: "Servicio de rehabilitacion corporal",
+      en: "Body rehabilitation service",
+      ru: "Телесная реабилитация",
+    },
+    description: {
+      es: "Abordaje personalizado para recuperar movilidad, aliviar molestias y acompanar procesos de rehabilitacion.",
+      en: "Personalized support to restore mobility, ease discomfort, and support rehabilitation processes.",
+      ru: "Индивидуальный подход для восстановления подвижности, снятия дискомфорта и поддержки реабилитации.",
+    },
+  },
 ];
 
 export const initialAppointments: Appointment[] = [
@@ -129,7 +146,7 @@ export const translations = {
     eyebrow: "",
     title: "",
     subtitle:
-      "Sesiones de masaje terapeutico y deportivo orientadas a aliviar tension, mejorar movilidad y acompanar la recuperacion corporal.",
+      "Sesiones de masaje terapeutico y deportivo orientadas a aliviar tension, mejorar movilidad y acompañar la recuperacion corporal.",
     bookTab: "Reservar",
     adminTab: "Panel",
     language: "Idioma",
@@ -199,15 +216,14 @@ export const translations = {
       "Solicitud enviada a Supabase. El turno queda pendiente de aprobacion.",
     emailSkipped:
       "El turno se guardo correctamente, pero el email no pudo enviarse o aun no esta configurado.",
-    schedule: "Lun a Vie, 9:00 a 19:00. Sabados configurables.",
+    schedule: "",
     timezone: "Hora de Argentina",
     howItWorksTitle: "Como funciona",
     stepChoose: "Elegis servicio, fecha y horario disponible.",
     stepPending: "El turno queda pendiente de aprobacion profesional.",
     stepEmail: "Recibis un email cuando la masajista confirma o rechaza.",
     privacyTitle: "Datos protegidos",
-    privacyCopy:
-      "La informacion del paciente solo se ve en el panel privado de la masajista.",
+    privacyCopy: "",
   },
   en: {
     appName: "Massage booking",
