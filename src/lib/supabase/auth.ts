@@ -1,6 +1,17 @@
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
+export class AdminAuthError extends Error {
+  constructor(
+    public readonly code:
+      | "account_not_confirmed"
+      | "access_unavailable"
+      | "invalid_credentials",
+  ) {
+    super(code);
+  }
+}
+
 export async function getCurrentAdminUser() {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) {
@@ -21,7 +32,7 @@ export async function getCurrentAdminUser() {
 export async function signInAdmin(email: string, password: string) {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) {
-    throw new Error("Supabase is not configured.");
+    throw new AdminAuthError("access_unavailable");
   }
 
   const { data, error } = await withTimeout(
@@ -33,11 +44,23 @@ export async function signInAdmin(email: string, password: string) {
   );
 
   if (error) {
-    throw new Error(error.message);
+    const normalizedMessage = error.message.toLowerCase();
+    if (normalizedMessage.includes("email not confirmed")) {
+      throw new AdminAuthError("account_not_confirmed");
+    }
+
+    if (
+      normalizedMessage.includes("invalid login credentials") ||
+      normalizedMessage.includes("invalid credentials")
+    ) {
+      throw new AdminAuthError("invalid_credentials");
+    }
+
+    throw new AdminAuthError("access_unavailable");
   }
 
   if (!data.user) {
-    throw new Error("Supabase Auth did not return a user.");
+    throw new AdminAuthError("access_unavailable");
   }
 
   return data.user as User;

@@ -29,6 +29,7 @@ import {
   updateRemoteAppointmentStatus,
 } from "@/lib/supabase/bookings";
 import {
+  AdminAuthError,
   getCurrentAdminUser,
   signInAdmin,
   signOutAdmin,
@@ -377,7 +378,7 @@ export function BookingApp() {
       });
     } catch (error) {
       logTechnicalError(error);
-      setNotice(t.signInError);
+      setNotice(getSignInNotice(error, t));
     } finally {
       setIsLoadingAdmin(false);
     }
@@ -1855,6 +1856,20 @@ function logTechnicalError(error: unknown) {
   if (process.env.NODE_ENV !== "production") {
     console.error(error);
   }
+}
+
+function getSignInNotice(error: unknown, t: Record<string, string>) {
+  if (error instanceof AdminAuthError) {
+    const messages: Record<AdminAuthError["code"], string> = {
+      account_not_confirmed: t.accountNotConfirmed,
+      access_unavailable: t.accessUnavailable,
+      invalid_credentials: t.signInError,
+    };
+
+    return messages[error.code];
+  }
+
+  return t.signInError;
 }
 
 function Field({

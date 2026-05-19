@@ -220,6 +220,10 @@ export const translations = {
     adminLoaded: "Ingreso correcto.",
     adminUpdated: "Turno actualizado.",
     signInError: "No se pudo iniciar sesión. Revisá el email y la contraseña.",
+    accountNotConfirmed:
+      "La cuenta existe, pero todavía falta confirmarla antes de ingresar.",
+    accessUnavailable:
+      "El sistema de acceso no está disponible en este momento. Intentá nuevamente.",
     systemError: "No se pudo completar la acción. Intentá nuevamente.",
     blockCreated: "Horario bloqueado correctamente.",
     blockDaysTitle: "Bloquear dias y horarios",
@@ -355,6 +359,10 @@ export const translations = {
     adminLoaded: "Signed in successfully.",
     adminUpdated: "Appointment updated.",
     signInError: "Could not sign in. Check the email and password.",
+    accountNotConfirmed:
+      "The account exists, but it still needs to be confirmed before signing in.",
+    accessUnavailable:
+      "The access system is not available right now. Please try again.",
     systemError: "The action could not be completed. Please try again.",
     blockCreated: "Time blocked successfully.",
     blockDaysTitle: "Block days and times",
@@ -491,6 +499,10 @@ export const translations = {
     adminLoaded: "Вход выполнен.",
     adminUpdated: "Запись обновлена.",
     signInError: "Не удалось войти. Проверьте email и пароль.",
+    accountNotConfirmed:
+      "Аккаунт существует, но его нужно подтвердить перед входом.",
+    accessUnavailable:
+      "Система входа сейчас недоступна. Попробуйте еще раз.",
     systemError: "Не удалось выполнить действие. Попробуйте еще раз.",
     blockCreated: "Время заблокировано.",
     blockDaysTitle: "Заблокировать дни и время",
