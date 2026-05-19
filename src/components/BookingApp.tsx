@@ -415,8 +415,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   }
 
   function openAdminAccess() {
-    if (adminUser) {
-      void handleAdminLogout();
+    if (isAdminPage && adminUser) {
       return;
     }
 
@@ -551,13 +550,13 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                 <button
                   type="button"
                   onClick={openAdminAccess}
-                  title={adminUser ? t.logout : t.loginAdmin}
-                  aria-label={adminUser ? t.logout : t.loginAdmin}
+                  title={adminUser ? t.adminProfile : t.loginAdmin}
+                  aria-label={adminUser ? t.adminProfile : t.loginAdmin}
                   className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
                 >
                   <UserIcon />
                   <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
-                    {adminUser ? t.logout : t.loginAdmin}
+                    {adminUser ? t.adminProfile : t.loginAdmin}
                   </span>
                 </button>
                 <label className="sr-only" htmlFor="admin-language">
@@ -642,13 +641,13 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
               <button
                 type="button"
                 onClick={openAdminAccess}
-                title={adminUser ? t.logout : t.loginAdmin}
-                aria-label={adminUser ? t.logout : t.loginAdmin}
+                title={adminUser ? t.adminProfile : t.loginAdmin}
+                aria-label={adminUser ? t.adminProfile : t.loginAdmin}
                 className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
               >
                 <UserIcon />
                 <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
-                  {adminUser ? t.logout : t.loginAdmin}
+                  {adminUser ? t.adminProfile : t.loginAdmin}
                 </span>
               </button>
               {!isAdminPage ? (

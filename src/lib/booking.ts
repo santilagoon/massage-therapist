@@ -155,7 +155,7 @@ export const translations = {
       "Sesiones de masaje terapeutico y deportivo orientadas a aliviar tension, mejorar movilidad y acompañar la recuperacion corporal.",
     bookTab: "Reservar",
     adminTab: "Ingresar",
-    loginAdmin: "Log In",
+    loginAdmin: "Ingresar",
     currency: "Moneda",
     arsCurrency: "$ARG",
     usdCurrency: "USD",
