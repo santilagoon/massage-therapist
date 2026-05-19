@@ -1684,13 +1684,6 @@ function AdminLogin({
       onSubmit={submitLogin}
       className="grid gap-4 rounded-lg border border-[#d9d0c3] bg-white p-5"
     >
-      <div>
-        <h2 className="text-lg font-semibold">{t.adminLoginTitle}</h2>
-        <p className="mt-2 text-sm leading-6 text-[#5b554e]">
-          {t.adminLoginHint}
-        </p>
-      </div>
-
       <Field label={t.email}>
         <input
           required

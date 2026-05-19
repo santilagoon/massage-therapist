@@ -154,7 +154,7 @@ export const translations = {
     subtitle:
       "Sesiones de masaje terapeutico y deportivo orientadas a aliviar tension, mejorar movilidad y acompañar la recuperacion corporal.",
     bookTab: "Reservar",
-    adminTab: "Panel",
+    adminTab: "Ingresar",
     loginAdmin: "Log in",
     currency: "Moneda",
     arsCurrency: "$ARG",
@@ -208,9 +208,8 @@ export const translations = {
     adminAgenda: "Agenda",
     adminRequests: "Solicitudes",
     adminBlocks: "Bloqueos",
-    adminLoginTitle: "Ingreso de la masajista",
-    adminLoginHint:
-      "Usá el usuario creado en Supabase Auth para ver y gestionar turnos reales.",
+    adminLoginTitle: "Ingresar",
+    adminLoginHint: "",
     password: "Contraseña",
     login: "Ingresar",
     logout: "Salir",
@@ -289,7 +288,7 @@ export const translations = {
     subtitle:
       "Therapeutic and sports massage sessions focused on easing tension, improving mobility, and supporting body recovery.",
     bookTab: "Book",
-    adminTab: "Admin",
+    adminTab: "Sign in",
     loginAdmin: "Log in",
     currency: "Currency",
     arsCurrency: "$ARG",
@@ -343,9 +342,8 @@ export const translations = {
     adminAgenda: "Schedule",
     adminRequests: "Requests",
     adminBlocks: "Blocks",
-    adminLoginTitle: "Therapist sign in",
-    adminLoginHint:
-      "Use the user created in Supabase Auth to view and manage real appointments.",
+    adminLoginTitle: "Sign in",
+    adminLoginHint: "",
     password: "Password",
     login: "Sign in",
     logout: "Sign out",
@@ -425,7 +423,7 @@ export const translations = {
     subtitle:
       "Сеансы терапевтического и спортивного массажа для снятия напряжения, улучшения подвижности и восстановления тела.",
     bookTab: "Запись",
-    adminTab: "Панель",
+    adminTab: "Войти",
     loginAdmin: "Log in",
     currency: "Валюта",
     arsCurrency: "$ARG",
@@ -479,9 +477,8 @@ export const translations = {
     adminAgenda: "Расписание",
     adminRequests: "Запросы",
     adminBlocks: "Блокировки",
-    adminLoginTitle: "Вход для специалиста",
-    adminLoginHint:
-      "Используйте пользователя, созданного в Supabase Auth, чтобы управлять записями.",
+    adminLoginTitle: "Войти",
+    adminLoginHint: "",
     password: "Пароль",
     login: "Войти",
     logout: "Выйти",
