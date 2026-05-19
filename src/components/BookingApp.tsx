@@ -458,21 +458,22 @@ export function BookingApp() {
     <main className="min-h-screen bg-white text-[#111111]">
       <section className="mx-auto flex min-h-screen w-full flex-col">
         <header className="sticky top-0 z-10 border-b border-[#e5e5e5] bg-white/95 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <a href="#home" className="text-sm font-semibold tracking-[0.12em] text-[#111111]">
               MM
             </a>
 
-            <nav className="hidden items-center gap-1 rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1 sm:flex">
+            <nav className="hidden items-center gap-1 rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1 lg:absolute lg:left-1/2 lg:flex lg:-translate-x-1/2">
               {[
                 ["#home", t.navHome],
                 ["#services", t.navServices],
+                ["#benefits", t.navBenefits],
                 ["#about", t.navAbout],
               ].map(([href, label]) => (
                 <a
                   key={href}
                   href={href}
-                  className="rounded-full px-4 py-2 text-sm font-medium text-[#525252] transition hover:bg-white hover:text-[#111111]"
+                  className="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium text-[#525252] transition hover:bg-white hover:text-[#111111]"
                 >
                   {label}
                 </a>
@@ -483,9 +484,14 @@ export function BookingApp() {
               <button
                 type="button"
                 onClick={openAdminAccess}
-                className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium text-[#111111] transition hover:bg-[#fafafa]"
+                title={t.loginAdmin}
+                aria-label={t.loginAdmin}
+                className="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
               >
-                {t.loginAdmin}
+                <UserIcon />
+                <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
+                  {t.loginAdmin}
+                </span>
               </button>
               <label className="sr-only" htmlFor="currency">
                 {t.currency}
@@ -552,6 +558,7 @@ export function BookingApp() {
 
           <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 sm:px-6">
             <HowItWorksSection t={t} />
+            <MassageBenefitsSection t={t} />
 
             <section id="booking" className="mx-auto grid w-full max-w-3xl gap-6 scroll-mt-24">
 
@@ -1122,6 +1129,51 @@ function HowItWorksSection({ t }: { t: Record<string, string> }) {
   );
 }
 
+function MassageBenefitsSection({ t }: { t: Record<string, string> }) {
+  const benefits = [
+    {
+      title: t.benefitReleaseTitle,
+      copy: t.benefitReleaseCopy,
+    },
+    {
+      title: t.benefitSportTitle,
+      copy: t.benefitSportCopy,
+    },
+    {
+      title: t.benefitRecoveryTitle,
+      copy: t.benefitRecoveryCopy,
+    },
+  ];
+
+  return (
+    <section id="benefits" className="mx-auto grid w-full max-w-5xl gap-6 scroll-mt-24 border-t border-[#e5e5e5] pt-8">
+      <div className="mx-auto max-w-3xl text-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#737373]">
+          {t.navBenefits}
+        </p>
+        <h2 className="mt-3 text-3xl font-semibold text-[#111111]">
+          {t.benefitsTitle}
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#525252]">
+          {t.benefitsIntro}
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {benefits.map((benefit) => (
+          <article
+            key={benefit.title}
+            className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-5"
+          >
+            <h3 className="text-lg font-semibold text-[#111111]">{benefit.title}</h3>
+            <p className="mt-3 text-sm leading-6 text-[#525252]">{benefit.copy}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function AboutMariaSection({
   contactForm,
   contactNotice,
@@ -1149,7 +1201,7 @@ function AboutMariaSection({
           {t.professionalName}
         </h2>
         <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#525252]">
-          {t.subtitle}
+          {t.aboutMariaCopy}
         </p>
       </div>
 
@@ -1217,6 +1269,30 @@ function AboutMariaSection({
         ) : null}
       </form>
     </section>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4.5 20a7.5 7.5 0 0 1 15 0"
+      />
+    </svg>
   );
 }
 

@@ -147,6 +147,7 @@ export const translations = {
     professionalRole: "Masajista Terapeutica",
     navHome: "Home",
     navServices: "Servicios",
+    navBenefits: "Beneficios",
     navAbout: "Acerca de Maria",
     eyebrow: "",
     title: "",
@@ -245,6 +246,20 @@ export const translations = {
     stepChoose: "Elegis servicio, fecha y horario disponible.",
     stepPending: "El turno queda pendiente de aprobacion profesional.",
     stepEmail: "Recibis un email cuando la masajista confirma o rechaza.",
+    benefitsTitle: "Beneficios del masaje",
+    benefitsIntro:
+      "El masaje terapeutico puede ayudar a regular el sistema nervioso, reducir tension muscular y acompañar procesos de recuperacion corporal.",
+    benefitReleaseTitle: "Alivio de tension y estres",
+    benefitReleaseCopy:
+      "El trabajo manual favorece la relajacion profunda, puede estimular la liberacion de endorfinas y dopamina, y ayuda a bajar la carga de estres acumulada.",
+    benefitSportTitle: "Movilidad y rendimiento deportivo",
+    benefitSportCopy:
+      "Las sesiones deportivas se orientan a descargar zonas sobreexigidas, mejorar rango de movimiento y acompañar la recuperacion despues del entrenamiento.",
+    benefitRecoveryTitle: "Rehabilitacion corporal",
+    benefitRecoveryCopy:
+      "Un abordaje personalizado permite trabajar molestias especificas, postura, movilidad y procesos de recuperacion con criterio corporal y kinesiologico.",
+    aboutMariaCopy:
+      "Soy una masajista profesional originaria de Rusia y viviendo en Argentina. Mi trabajo integra masaje terapeutico, deportologia y rehabilitacion corporal, con formacion vinculada a estudios kinesiologicos para acompañar cada proceso de manera personalizada.",
     privacyTitle: "Datos protegidos",
     privacyCopy: "",
   },
@@ -254,6 +269,7 @@ export const translations = {
     professionalRole: "Therapeutic Massage Therapist",
     navHome: "Home",
     navServices: "Services",
+    navBenefits: "Benefits",
     navAbout: "About Maria",
     eyebrow: "",
     title: "",
@@ -352,6 +368,20 @@ export const translations = {
     stepChoose: "Choose a service, date, and available time.",
     stepPending: "The appointment stays pending professional approval.",
     stepEmail: "You receive an email when the therapist confirms or declines.",
+    benefitsTitle: "Massage benefits",
+    benefitsIntro:
+      "Therapeutic massage can help regulate the nervous system, reduce muscular tension, and support body recovery.",
+    benefitReleaseTitle: "Tension and stress relief",
+    benefitReleaseCopy:
+      "Manual therapy encourages deep relaxation, may support the release of endorphins and dopamine, and helps reduce accumulated stress.",
+    benefitSportTitle: "Mobility and sports performance",
+    benefitSportCopy:
+      "Sports-focused sessions help unload overworked areas, improve range of motion, and support recovery after training.",
+    benefitRecoveryTitle: "Body rehabilitation",
+    benefitRecoveryCopy:
+      "A personalized approach can address specific discomfort, posture, mobility, and recovery processes with body-aware therapeutic criteria.",
+    aboutMariaCopy:
+      "I am a professional massage therapist from Russia, living in Argentina. My work integrates therapeutic massage, sports therapy, and body rehabilitation, with training connected to kinesiology studies to support each process in a personalized way.",
     privacyTitle: "Protected data",
     privacyCopy:
       "Patient information is only visible in the therapist's private panel.",
@@ -362,6 +392,7 @@ export const translations = {
     professionalRole: "Терапевтический массажист",
     navHome: "Главная",
     navServices: "Услуги",
+    navBenefits: "Польза",
     navAbout: "О Марии",
     eyebrow: "",
     title: "",
@@ -460,6 +491,20 @@ export const translations = {
     stepChoose: "Выберите услугу, дату и доступное время.",
     stepPending: "Запись ожидает подтверждения специалиста.",
     stepEmail: "Вы получите email после подтверждения или отклонения.",
+    benefitsTitle: "Польза массажа",
+    benefitsIntro:
+      "Терапевтический массаж может помогать нервной системе, снижать мышечное напряжение и поддерживать восстановление тела.",
+    benefitReleaseTitle: "Снижение напряжения и стресса",
+    benefitReleaseCopy:
+      "Ручная терапия способствует глубокому расслаблению, может поддерживать выработку эндорфинов и дофамина и помогает уменьшить накопленный стресс.",
+    benefitSportTitle: "Подвижность и спортивное восстановление",
+    benefitSportCopy:
+      "Спортивные сеансы помогают разгрузить перегруженные зоны, улучшить амплитуду движения и восстановление после тренировок.",
+    benefitRecoveryTitle: "Телесная реабилитация",
+    benefitRecoveryCopy:
+      "Индивидуальный подход помогает работать с конкретным дискомфортом, осанкой, подвижностью и процессами восстановления.",
+    aboutMariaCopy:
+      "Я профессиональный массажист из России, живу в Аргентине. В работе соединяю терапевтический массаж, спортивное направление и телесную реабилитацию, опираясь на знания, связанные с кинезиологией, чтобы сопровождать каждый процесс индивидуально.",
     privacyTitle: "Защита данных",
     privacyCopy:
       "Данные пациента видны только в приватной панели специалиста.",
