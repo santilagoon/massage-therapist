@@ -37,6 +37,22 @@ type AppointmentRow = {
   created_at: string;
 };
 
+export type AvailabilityBlock = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string;
+  createdAt: string;
+};
+
+type AvailabilityBlockRow = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  reason: string | null;
+  created_at: string;
+};
+
 export async function loadRemoteServices() {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) {
@@ -158,6 +174,59 @@ export async function loadAdminAppointments() {
   return ((data ?? []) as AppointmentRow[]).map(mapAppointmentRow);
 }
 
+export async function loadAdminBlocks() {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await withTimeout(
+    supabase
+      .from("availability_exceptions")
+      .select("id, starts_at, ends_at, reason, created_at")
+      .eq("is_available", false)
+      .order("starts_at", { ascending: true }),
+    "Supabase did not respond while loading blocked times.",
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as AvailabilityBlockRow[]).map(mapAvailabilityBlockRow);
+}
+
+export async function createAdminBlock(input: {
+  startsAt: string;
+  endsAt: string;
+  reason: string;
+}) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { data, error } = await withTimeout(
+    supabase
+      .from("availability_exceptions")
+      .insert({
+        starts_at: input.startsAt,
+        ends_at: input.endsAt,
+        reason: input.reason,
+        is_available: false,
+      })
+      .select("id, starts_at, ends_at, reason, created_at")
+      .single(),
+    "Supabase did not respond while blocking the time.",
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapAvailabilityBlockRow(data as AvailabilityBlockRow);
+}
+
 export async function updateRemoteAppointmentStatus(
   id: string,
   status: AppointmentStatus,
@@ -211,6 +280,16 @@ function mapServiceRow(row: ServiceRow): Service {
     priceUsdCents: localFallback?.priceUsdCents ?? null,
     title: localFallback?.title ?? row.title,
     description: localFallback?.description ?? row.description,
+  };
+}
+
+function mapAvailabilityBlockRow(row: AvailabilityBlockRow): AvailabilityBlock {
+  return {
+    id: row.id,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    reason: row.reason ?? "",
+    createdAt: row.created_at,
   };
 }
 

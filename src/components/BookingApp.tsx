@@ -19,6 +19,9 @@ import {
 } from "@/lib/booking";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
+  AvailabilityBlock,
+  createAdminBlock,
+  loadAdminBlocks,
   loadAdminAppointments,
   loadBusyAppointments,
   loadRemoteServices,
@@ -37,6 +40,7 @@ import {
 
 const storageKey = "massage-therapist-mvp-appointments";
 type AdminFilter = "all" | "pending_approval" | "confirmed" | "future_confirmed";
+type AdminView = "agenda" | "requests" | "blocks";
 type DisplayCurrency = "ARS" | "USD";
 type AppointmentPlace = "home" | "zapiola" | "other_studio";
 type BookingFormField =
@@ -79,6 +83,7 @@ export function BookingApp() {
     const stored = window.localStorage.getItem(storageKey);
     return stored ? (JSON.parse(stored) as Appointment[]) : initialAppointments;
   });
+  const [availabilityBlocks, setAvailabilityBlocks] = useState<AvailabilityBlock[]>([]);
   const [busyAppointments, setBusyAppointments] = useState<Appointment[]>([]);
   const [adminUser, setAdminUser] = useState<User | null>(null);
   const [isLoadingRemote, setIsLoadingRemote] = useState(isSupabaseConfigured);
@@ -346,8 +351,12 @@ export function BookingApp() {
 
     setIsLoadingAdmin(true);
     try {
-      const remoteAppointments = await loadAdminAppointments();
+      const [remoteAppointments, remoteBlocks] = await Promise.all([
+        loadAdminAppointments(),
+        loadAdminBlocks(),
+      ]);
       setAppointments(remoteAppointments);
+      setAvailabilityBlocks(remoteBlocks);
       setNotice(t.adminLoaded);
     } catch (error) {
       setNotice(`${t.localMode} ${getErrorMessage(error)}`);
@@ -361,8 +370,12 @@ export function BookingApp() {
     try {
       const user = await signInAdmin(email, password);
       setAdminUser(user);
-      const remoteAppointments = await loadAdminAppointments();
+      const [remoteAppointments, remoteBlocks] = await Promise.all([
+        loadAdminAppointments(),
+        loadAdminBlocks(),
+      ]);
       setAppointments(remoteAppointments);
+      setAvailabilityBlocks(remoteBlocks);
       setNotice(t.adminLoaded);
     } catch (error) {
       setNotice(getErrorMessage(error));
@@ -375,13 +388,47 @@ export function BookingApp() {
     await signOutAdmin();
     setAdminUser(null);
     setAppointments([]);
+    setAvailabilityBlocks([]);
     setNotice(t.adminLoginRequired);
   }
 
   function openAdminAccess() {
+    if (adminUser) {
+      void handleAdminLogout();
+      return;
+    }
+
     setShowAdminAccess(true);
     setActiveTab("admin");
     document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function handleCreateBlock(input: {
+    date: string;
+    startsAt: string;
+    endsAt: string;
+    reason: string;
+  }) {
+    if (!remoteMode || !adminUser) {
+      setNotice(t.adminLoginRequired);
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    try {
+      const block = await createAdminBlock({
+        startsAt: new Date(`${input.date}T${input.startsAt}:00`).toISOString(),
+        endsAt: new Date(`${input.date}T${input.endsAt}:00`).toISOString(),
+        reason: input.reason,
+      });
+      setAvailabilityBlocks((current) => [...current, block]);
+      setNotice(t.blockCreated);
+      void refreshBusySlots(date);
+    } catch (error) {
+      setNotice(getErrorMessage(error));
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   }
 
   useEffect(() => {
@@ -484,13 +531,13 @@ export function BookingApp() {
               <button
                 type="button"
                 onClick={openAdminAccess}
-                title={t.loginAdmin}
-                aria-label={t.loginAdmin}
+                title={adminUser ? t.logout : t.loginAdmin}
+                aria-label={adminUser ? t.logout : t.loginAdmin}
                 className="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
               >
                 <UserIcon />
                 <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
-                  {t.loginAdmin}
+                  {adminUser ? t.logout : t.loginAdmin}
                 </span>
               </button>
               <label className="sr-only" htmlFor="currency">
@@ -881,6 +928,7 @@ export function BookingApp() {
             ) : (
               <AdminPanel
                 appointments={appointments}
+                availabilityBlocks={availabilityBlocks}
                 services={availableServices}
                 adminUser={adminUser}
                 isLoading={isLoadingAdmin || isUpdatingStatus}
@@ -889,6 +937,7 @@ export function BookingApp() {
                 onLogin={handleAdminLogin}
                 onLogout={handleAdminLogout}
                 onRefresh={loadAdminData}
+                onCreateBlock={handleCreateBlock}
                 onStatusChange={updateStatus}
               />
             )}
@@ -1003,6 +1052,7 @@ function SummaryRow({
 
 function AdminPanel({
   appointments,
+  availabilityBlocks,
   services,
   adminUser,
   isLoading,
@@ -1011,9 +1061,11 @@ function AdminPanel({
   onLogin,
   onLogout,
   onRefresh,
+  onCreateBlock,
   onStatusChange,
 }: {
   appointments: Appointment[];
+  availabilityBlocks: AvailabilityBlock[];
   services: typeof fallbackServices;
   adminUser: User | null;
   isLoading: boolean;
@@ -1022,10 +1074,19 @@ function AdminPanel({
   onLogin: (email: string, password: string) => Promise<void>;
   onLogout: () => Promise<void>;
   onRefresh: () => Promise<void>;
+  onCreateBlock: (input: {
+    date: string;
+    startsAt: string;
+    endsAt: string;
+    reason: string;
+  }) => Promise<void>;
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
 }) {
+  const [adminView, setAdminView] = useState<AdminView>("agenda");
   const [filter, setFilter] = useState<AdminFilter>("all");
+  const [selectedDate, setSelectedDate] = useState(getTodayDateValue());
   const stats = getAdminStats(appointments);
+  const dateOptions = useMemo(() => getDateOptions(10), []);
   const visibleAppointments = appointments.filter((appointment) => {
     if (filter === "future_confirmed") {
       return appointment.status === "confirmed" && new Date(appointment.startsAt) >= new Date();
@@ -1037,28 +1098,19 @@ function AdminPanel({
 
     return appointment.status === filter;
   });
+  const selectedDayAppointments = appointments
+    .filter((appointment) => isSameDateValue(appointment.startsAt, selectedDate))
+    .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
+  const selectedDayBlocks = availabilityBlocks
+    .filter((block) => isSameDateValue(block.startsAt, selectedDate))
+    .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
 
-  if (!adminUser && isSupabaseConfigured()) {
+  if (!adminUser) {
     return <AdminLogin isLoading={isLoading} t={t} onLogin={onLogin} />;
   }
 
-  if (appointments.length === 0) {
-    return (
-      <div className="rounded-lg border border-[#d9d0c3] bg-white p-5">
-        <AdminHeader
-          adminUser={adminUser}
-          isLoading={isLoading}
-          t={t}
-          onLogout={onLogout}
-          onRefresh={onRefresh}
-        />
-        <p className="mt-4 text-sm text-[#5b554e]">{t.emptyAdmin}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-5">
       <AdminHeader
         adminUser={adminUser}
         isLoading={isLoading}
@@ -1066,7 +1118,54 @@ function AdminPanel({
         onLogout={onLogout}
         onRefresh={onRefresh}
       />
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-1">
+        {([
+          ["agenda", t.adminAgenda],
+          ["requests", t.adminRequests],
+          ["blocks", t.adminBlocks],
+        ] as const).map(([view, label]) => (
+          <button
+            key={view}
+            type="button"
+            onClick={() => setAdminView(view)}
+            className={tabClass(adminView === view)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <AdminStats stats={stats} t={t} />
+
+      {adminView === "agenda" ? (
+        <AdminAgenda
+          appointments={selectedDayAppointments}
+          blocks={selectedDayBlocks}
+          dateOptions={dateOptions}
+          locale={locale}
+          selectedDate={selectedDate}
+          services={services}
+          t={t}
+          isLoading={isLoading}
+          onDateChange={setSelectedDate}
+          onStatusChange={onStatusChange}
+        />
+      ) : null}
+
+      {adminView === "blocks" ? (
+        <AdminBlocks
+          blocks={availabilityBlocks}
+          dateOptions={dateOptions}
+          isLoading={isLoading}
+          locale={locale}
+          selectedDate={selectedDate}
+          t={t}
+          onCreateBlock={onCreateBlock}
+          onDateChange={setSelectedDate}
+        />
+      ) : null}
+
+      {adminView === "requests" ? (
+        <>
       <div className="flex flex-wrap gap-2">
         {([
           ["all", t.allAppointments, stats.total],
@@ -1100,7 +1199,242 @@ function AdminPanel({
           onStatusChange={onStatusChange}
         />
       ))}
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function AdminAgenda({
+  appointments,
+  blocks,
+  dateOptions,
+  isLoading,
+  locale,
+  selectedDate,
+  services,
+  t,
+  onDateChange,
+  onStatusChange,
+}: {
+  appointments: Appointment[];
+  blocks: AvailabilityBlock[];
+  dateOptions: ReturnType<typeof getDateOptions>;
+  isLoading: boolean;
+  locale: Locale;
+  selectedDate: string;
+  services: typeof fallbackServices;
+  t: Record<string, string>;
+  onDateChange: (date: string) => void;
+  onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
+}) {
+  return (
+    <section className="grid gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-4 sm:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold text-[#111111]">{t.adminAgenda}</h2>
+          <p className="mt-1 text-sm text-[#737373]">
+            {formatSummaryDate(`${selectedDate}T00:00:00`, locale)}
+          </p>
+        </div>
+        <Field label={t.openCalendar}>
+          <input
+            type="date"
+            value={selectedDate}
+            min={getTodayDateValue()}
+            onChange={(event) => onDateChange(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+      </div>
+
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+        {dateOptions.map((option) => {
+          const isSelected = option.value === selectedDate;
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onDateChange(option.value)}
+              aria-pressed={isSelected}
+              className={datePillClass(isSelected)}
+            >
+              <span className="text-xs font-semibold uppercase">
+                {formatWeekday(option.date, locale)}
+              </span>
+              <span className="text-2xl font-semibold">{option.date.getDate()}</span>
+              <span className="text-xs lowercase">{formatMonth(option.date, locale)}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {blocks.length > 0 ? (
+        <div className="grid gap-2">
+          {blocks.map((block) => (
+            <div
+              key={block.id}
+              className="rounded-xl border border-[#f0c9b8] bg-[#fff7f2] p-3 text-sm text-[#8a4329]"
+            >
+              <strong>{t.blockedTime}</strong> {formatTimeOnly(block.startsAt, locale)} -{" "}
+              {formatTimeOnly(block.endsAt, locale)}
+              {block.reason ? ` · ${block.reason}` : ""}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {appointments.length === 0 && blocks.length === 0 ? (
+        <div className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-10 text-center">
+          <p className="text-lg font-semibold text-[#404040]">{t.noAppointmentsThisDay}</p>
+          <p className="mt-2 text-sm text-[#737373]">{t.shareBookingLink}</p>
+        </div>
+      ) : null}
+
+      <div className="grid gap-3">
+        {appointments.map((appointment) => (
+          <AppointmentRow
+            key={appointment.id}
+            appointment={appointment}
+            services={services}
+            locale={locale}
+            t={t}
+            isUpdating={isLoading}
+            onStatusChange={onStatusChange}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminBlocks({
+  blocks,
+  dateOptions,
+  isLoading,
+  locale,
+  selectedDate,
+  t,
+  onCreateBlock,
+  onDateChange,
+}: {
+  blocks: AvailabilityBlock[];
+  dateOptions: ReturnType<typeof getDateOptions>;
+  isLoading: boolean;
+  locale: Locale;
+  selectedDate: string;
+  t: Record<string, string>;
+  onCreateBlock: (input: {
+    date: string;
+    startsAt: string;
+    endsAt: string;
+    reason: string;
+  }) => Promise<void>;
+  onDateChange: (date: string) => void;
+}) {
+  const [blockForm, setBlockForm] = useState({
+    startsAt: "09:00",
+    endsAt: "19:00",
+    reason: "",
+  });
+
+  function submitBlock(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void onCreateBlock({
+      date: selectedDate,
+      startsAt: blockForm.startsAt,
+      endsAt: blockForm.endsAt,
+      reason: blockForm.reason.trim(),
+    });
+    setBlockForm((current) => ({ ...current, reason: "" }));
+  }
+
+  return (
+    <section className="mx-auto grid w-full max-w-3xl gap-5 rounded-2xl border border-[#e5e5e5] bg-white p-4 sm:p-6">
+      <div>
+        <h2 className="text-2xl font-semibold text-[#111111]">{t.blockDaysTitle}</h2>
+        <p className="mt-2 text-sm leading-6 text-[#737373]">{t.blockDaysCopy}</p>
+      </div>
+
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+        {dateOptions.map((option) => {
+          const isSelected = option.value === selectedDate;
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onDateChange(option.value)}
+              aria-pressed={isSelected}
+              className={datePillClass(isSelected)}
+            >
+              <span className="text-xs font-semibold uppercase">
+                {formatWeekday(option.date, locale)}
+              </span>
+              <span className="text-2xl font-semibold">{option.date.getDate()}</span>
+              <span className="text-xs lowercase">{formatMonth(option.date, locale)}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <form onSubmit={submitBlock} className="grid gap-4 rounded-2xl bg-[#fafafa] p-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t.blockStart}>
+            <input
+              required
+              type="time"
+              value={blockForm.startsAt}
+              onChange={(event) =>
+                setBlockForm((current) => ({ ...current, startsAt: event.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t.blockEnd}>
+            <input
+              required
+              type="time"
+              value={blockForm.endsAt}
+              onChange={(event) =>
+                setBlockForm((current) => ({ ...current, endsAt: event.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+        </div>
+
+        <Field label={t.blockReason}>
+          <input
+            value={blockForm.reason}
+            onChange={(event) =>
+              setBlockForm((current) => ({ ...current, reason: event.target.value }))
+            }
+            className={inputClass}
+          />
+        </Field>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="h-12 rounded-xl bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
+        >
+          {isLoading ? t.loading : t.blockDay}
+        </button>
+      </form>
+
+      {blocks.length > 0 ? (
+        <div className="grid gap-2">
+          {blocks.slice(0, 8).map((block) => (
+            <div key={block.id} className="rounded-xl border border-[#e5e5e5] p-3 text-sm">
+              {formatDateTime(block.startsAt, locale)} - {formatTimeOnly(block.endsAt, locale)}
+              {block.reason ? ` · ${block.reason}` : ""}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -1673,6 +2007,10 @@ function formatSummaryDate(value: string, locale: Locale) {
     weekday: "short",
     timeZone,
   }).format(new Date(value.includes("T") ? value : `${value}T00:00:00`));
+}
+
+function isSameDateValue(value: string, dateValue: string) {
+  return value.slice(0, 10) === dateValue;
 }
 
 function formatTimeOnly(value: string, locale: Locale) {

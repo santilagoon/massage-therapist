@@ -31,6 +31,7 @@ Run these files in Supabase SQL Editor:
 3. `supabase/migrations/0003_restrict_admin_access.sql`
 4. `supabase/migrations/0004_appointment_data_quality.sql`
 5. `supabase/migrations/0005_seed_service_prices.sql`
+6. `supabase/migrations/0006_admin_blocks.sql`
 
 If `0004_appointment_data_quality.sql` fails because old test data violates a rule, run:
 
