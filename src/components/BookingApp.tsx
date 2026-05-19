@@ -182,7 +182,8 @@ export function BookingApp() {
     [blockingAppointments, date, selectedService],
   );
 
-  const selectedSlot = availableSlots.includes(slot) ? slot : availableSlots[0] ?? "";
+  const selectedSlot = availableSlots.includes(slot) ? slot : "";
+  const dateOptions = useMemo(() => getDateOptions(12), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -380,14 +381,14 @@ export function BookingApp() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f3ee] text-[#24211d]">
+    <main className="min-h-screen bg-white text-[#111111]">
       <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-[#d9d0c3] py-4 sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-4 border-b border-[#e5e5e5] py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#6f7b60]">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#737373]">
               {t.eyebrow}
             </p>
-            <h1 className="mt-2 text-2xl font-semibold leading-tight text-[#24211d] sm:text-4xl">
+            <h1 className="mt-2 text-2xl font-semibold leading-tight text-[#111111] sm:text-4xl">
               {t.title}
             </h1>
           </div>
@@ -400,7 +401,7 @@ export function BookingApp() {
               id="language"
               value={locale}
               onChange={(event) => setLocale(event.target.value as Locale)}
-              className="h-10 rounded-md border border-[#bdb3a5] bg-white px-3 text-sm font-medium"
+              className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
             >
               {locales.map((item) => (
                 <option key={item} value={item}>
@@ -413,16 +414,16 @@ export function BookingApp() {
 
         <div className="grid flex-1 gap-6 py-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.65fr)]">
           <section className="flex flex-col gap-6">
-            <div className="grid gap-4 rounded-lg bg-[#e4d8c8] p-4 sm:grid-cols-[1fr_180px] sm:p-5">
+            <div className="grid gap-4 rounded-2xl bg-[#111111] p-5 text-white sm:grid-cols-[1fr_180px] sm:p-6">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#7f4e3b]">
+                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#d4d4d4]">
                   {t.appName}
                 </p>
-                <p className="mt-3 max-w-2xl text-base leading-7 text-[#4a443d] sm:text-lg sm:leading-8">
+                <p className="mt-3 max-w-2xl text-base leading-7 text-[#f5f5f5] sm:text-lg sm:leading-8">
                   {t.subtitle}
                 </p>
               </div>
-              <div className="flex min-h-28 items-end rounded-md bg-[linear-gradient(140deg,#5f7a68,#b16c4a_55%,#e8d7b7)] p-4 text-white sm:min-h-36">
+              <div className="flex min-h-28 items-end rounded-2xl border border-white/15 bg-white/10 p-4 text-white sm:min-h-36">
                 <div>
                   <p className="text-sm font-semibold">{t.schedule}</p>
                   <p className="mt-2 text-xs uppercase tracking-[0.16em] opacity-85">
@@ -433,12 +434,12 @@ export function BookingApp() {
             </div>
 
             {notice || isLoadingRemote ? (
-              <p className="rounded-md border border-[#d9d0c3] bg-white p-3 text-sm font-medium text-[#4a443d]">
+              <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
                 {isLoadingRemote ? t.loading : notice}
               </p>
             ) : null}
 
-            <div className="flex w-full gap-2 border-b border-[#d9d0c3]">
+            <div className="flex w-full gap-2 border-b border-[#e5e5e5]">
               <button
                 type="button"
                 onClick={() => setActiveTab("book")}
@@ -459,70 +460,125 @@ export function BookingApp() {
               <form
                 onSubmit={submitRequest}
                 noValidate
-                className="grid gap-5 rounded-lg border border-[#d9d0c3] bg-white p-4 sm:p-5"
+                className="grid gap-6 rounded-2xl border border-[#e5e5e5] bg-white p-4 shadow-sm sm:p-6"
               >
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Field label={t.service}>
-                    <select
-                      value={serviceId}
-                      onChange={(event) => setServiceId(event.target.value)}
-                      className={inputClass}
-                    >
-                      {availableServices.map((service) => (
-                        <option key={service.id} value={service.id}>
-                          {service.title[locale]} - {service.durationMinutes} min
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                <div className="grid gap-3">
+                  <StepHeading number={1} label={t.chooseService} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {availableServices.map((service) => {
+                      const isSelected = service.id === serviceId;
 
-                  <Field label={t.date}>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(event) => setDate(event.target.value)}
-                      className={inputClass}
-                    />
-                  </Field>
-
-                  <Field label={t.time}>
-                    <select
-                      value={selectedSlot}
-                      onChange={(event) => setSlot(event.target.value)}
-                      className={inputClass}
-                      disabled={availableSlots.length === 0}
-                    >
-                      {availableSlots.map((availableSlot) => (
-                        <option key={availableSlot} value={availableSlot}>
-                          {new Intl.DateTimeFormat(locale === "es" ? "es-AR" : locale, {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            timeZone,
-                          }).format(new Date(availableSlot))}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                      return (
+                        <button
+                          key={service.id}
+                          type="button"
+                          onClick={() => {
+                            setServiceId(service.id);
+                            setSlot("");
+                          }}
+                          aria-pressed={isSelected}
+                          className={serviceCardClass(isSelected)}
+                        >
+                          <span className="flex items-start justify-between gap-3">
+                            <span>
+                              <span className="block text-base font-semibold text-[#111111]">
+                                {service.title[locale]}
+                              </span>
+                              <span className="mt-2 block text-sm leading-6 text-[#6b7280]">
+                                {service.description[locale]}
+                              </span>
+                            </span>
+                            <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#111111]" />
+                          </span>
+                          <span className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                            <span className="rounded-full bg-[#f5f5f5] px-3 py-1 text-[#374151]">
+                              {service.durationMinutes} min
+                            </span>
+                            <span className="font-semibold text-[#111111]">
+                              {formatServicePrice(service, locale, t)}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="rounded-md bg-[#f6f3ee] p-4">
-                  <h2 className="text-base font-semibold">{selectedService.title[locale]}</h2>
-                  <p className="mt-1 text-sm leading-6 text-[#5b554e]">
-                    {selectedService.description[locale]}
-                  </p>
-                  <p className="mt-3 text-sm font-medium text-[#7f4e3b]">
-                    {t.pendingCopy}
-                  </p>
+                <div className="grid gap-3">
+                  <StepHeading number={2} label={t.chooseDay} />
+                  <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+                    {dateOptions.map((option) => {
+                      const isSelected = option.value === date;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setDate(option.value);
+                            setSlot("");
+                          }}
+                          aria-pressed={isSelected}
+                          className={datePillClass(isSelected)}
+                        >
+                          <span className="text-xs font-semibold uppercase">
+                            {formatWeekday(option.date, locale)}
+                          </span>
+                          <span className="text-2xl font-semibold">
+                            {option.date.getDate()}
+                          </span>
+                          <span className="text-xs lowercase">
+                            {formatMonth(option.date, locale)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {availableSlots.length === 0 ? (
-                  <p className="rounded-md border border-[#ead0c3] bg-[#fff7f2] p-3 text-sm text-[#8a4329]">
-                    {t.noSlots}
-                  </p>
-                ) : null}
+                <div className="grid gap-3">
+                  <StepHeading number={3} label={t.chooseTime} />
+                  {availableSlots.length === 0 ? (
+                    <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-4 text-sm text-[#525252]">
+                      {t.noSlots}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {availableSlots.map((availableSlot) => {
+                        const isSelected = availableSlot === selectedSlot;
+
+                        return (
+                          <button
+                            key={availableSlot}
+                            type="button"
+                            onClick={() => {
+                              setSlot(availableSlot);
+                              setFormErrors((current) => ({ ...current, slot: undefined }));
+                            }}
+                            aria-pressed={isSelected}
+                            className={timeButtonClass(isSelected)}
+                          >
+                            {formatTimeOnly(availableSlot, locale)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {formErrors.slot ? (
+                    <p className="text-xs font-medium text-[#8a4329]">{formErrors.slot}</p>
+                  ) : null}
+                </div>
+
+                <BookingSummary
+                  date={date}
+                  locale={locale}
+                  selectedService={selectedService}
+                  selectedSlot={selectedSlot}
+                  t={t}
+                />
 
                 <div>
-                  <h2 className="text-lg font-semibold">{t.patient}</h2>
+                  <StepHeading number={4} label={t.patient} />
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <Field label={t.fullName} error={formErrors.patientName}>
                       <input
@@ -622,13 +678,13 @@ export function BookingApp() {
                   type="submit"
                   disabled={!selectedSlot}
                   aria-busy={isSaving}
-                  className="h-12 rounded-md bg-[#36594a] px-5 text-sm font-semibold text-white transition hover:bg-[#294438] disabled:cursor-not-allowed disabled:bg-[#9aa79f]"
+                  className="h-12 rounded-xl bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
                 >
                   {isSaving ? t.loading : t.request}
                 </button>
 
                 {notice ? (
-                  <p className="rounded-md border border-[#c9d8bd] bg-[#f1f8ed] p-3 text-sm font-medium text-[#36594a]">
+                  <p className="rounded-xl border border-[#d4d4d4] bg-[#fafafa] p-3 text-sm font-medium text-[#111111]">
                     {notice}
                   </p>
                 ) : null}
@@ -686,6 +742,83 @@ export function BookingApp() {
       [errorField]: undefined,
     }));
   }
+}
+
+function StepHeading({ number, label }: { number: number; label: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#111111] text-xs font-semibold text-white">
+        {number}
+      </span>
+      <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#525252]">
+        {label}
+      </h2>
+    </div>
+  );
+}
+
+function BookingSummary({
+  date,
+  locale,
+  selectedService,
+  selectedSlot,
+  t,
+}: {
+  date: string;
+  locale: Locale;
+  selectedService: (typeof fallbackServices)[number];
+  selectedSlot: string;
+  t: Record<string, string>;
+}) {
+  return (
+    <section className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-4">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#737373]">
+        {t.summary}
+      </h2>
+      <dl className="mt-4 grid gap-3 text-sm">
+        <SummaryRow label={t.service} value={selectedService.title[locale]} />
+        <SummaryRow
+          label={t.date}
+          value={formatSummaryDate(selectedSlot || date, locale)}
+        />
+        <SummaryRow
+          label={t.time}
+          value={selectedSlot ? formatTimeOnly(selectedSlot, locale) : "-"}
+        />
+        <SummaryRow
+          label={t.duration}
+          value={`${selectedService.durationMinutes} min`}
+        />
+        <div className="mt-1 border-t border-[#e5e5e5] pt-3">
+          <SummaryRow
+            label={t.total}
+            value={formatServicePrice(selectedService, locale, t)}
+            strong
+          />
+        </div>
+      </dl>
+      <p className="mt-4 text-sm leading-6 text-[#525252]">{t.pendingCopy}</p>
+    </section>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <dt className="text-[#737373]">{label}</dt>
+      <dd className={strong ? "font-semibold text-[#111111]" : "text-right font-medium text-[#262626]"}>
+        {value}
+      </dd>
+    </div>
+  );
 }
 
 function AdminPanel({
@@ -1052,14 +1185,14 @@ function Field({
 }
 
 const inputClass =
-  "min-h-12 w-full rounded-md border border-[#bdb3a5] bg-white px-3 py-2 text-base outline-none transition focus:border-[#36594a] focus:ring-2 focus:ring-[#36594a]/20 sm:text-sm";
+  "min-h-12 w-full rounded-xl border border-[#d4d4d4] bg-white px-3 py-2 text-base outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15 sm:text-sm";
 
 function tabClass(active: boolean) {
   return [
     "h-11 px-4 text-sm font-semibold transition",
     active
-      ? "border-b-2 border-[#36594a] text-[#36594a]"
-      : "text-[#6b6258] hover:text-[#24211d]",
+      ? "border-b-2 border-[#111111] text-[#111111]"
+      : "text-[#737373] hover:text-[#111111]",
   ].join(" ");
 }
 
@@ -1069,6 +1202,36 @@ function filterButtonClass(active: boolean) {
     active
       ? "border-[#36594a] bg-[#36594a] text-white"
       : "border-[#bdb3a5] bg-white text-[#413c36] hover:bg-[#f6f3ee]",
+  ].join(" ");
+}
+
+function serviceCardClass(active: boolean) {
+  return [
+    "rounded-2xl border p-4 text-left transition",
+    "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
+    active
+      ? "border-[#111111] bg-white shadow-sm"
+      : "border-[#e5e5e5] bg-[#fafafa] hover:border-[#a3a3a3]",
+  ].join(" ");
+}
+
+function datePillClass(active: boolean) {
+  return [
+    "flex min-w-[4.75rem] flex-col items-center rounded-2xl border px-4 py-3 transition",
+    "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
+    active
+      ? "border-[#111111] bg-[#111111] text-white"
+      : "border-[#e5e5e5] bg-[#fafafa] text-[#404040] hover:border-[#a3a3a3]",
+  ].join(" ");
+}
+
+function timeButtonClass(active: boolean) {
+  return [
+    "h-12 rounded-xl border text-sm font-semibold transition",
+    "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
+    active
+      ? "border-[#111111] bg-[#111111] text-white"
+      : "border-[#e5e5e5] bg-[#fafafa] text-[#404040] hover:border-[#a3a3a3]",
   ].join(" ");
 }
 
@@ -1111,6 +1274,68 @@ function normalizePersonName(value: string) {
 
 function onlyDigits(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function getDateOptions(days: number) {
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+    date.setHours(0, 0, 0, 0);
+
+    return {
+      date,
+      value: date.toISOString().slice(0, 10),
+    };
+  });
+}
+
+function formatWeekday(date: Date, locale: Locale) {
+  return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : locale, {
+    weekday: "short",
+    timeZone,
+  }).format(date);
+}
+
+function formatMonth(date: Date, locale: Locale) {
+  return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : locale, {
+    month: "short",
+    timeZone,
+  }).format(date);
+}
+
+function formatSummaryDate(value: string, locale: Locale) {
+  return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : locale, {
+    day: "numeric",
+    month: "short",
+    weekday: "short",
+    timeZone,
+  }).format(new Date(value.includes("T") ? value : `${value}T00:00:00`));
+}
+
+function formatTimeOnly(value: string, locale: Locale) {
+  return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  }).format(new Date(value));
+}
+
+function formatServicePrice(
+  service: (typeof fallbackServices)[number],
+  locale: Locale,
+  t: Record<string, string>,
+) {
+  if (!service.priceCents) {
+    return t.priceToConfirm;
+  }
+
+  const formatter = new Intl.NumberFormat(locale === "es" ? "es-AR" : locale, {
+    currency: service.priceLabel,
+    maximumFractionDigits: 0,
+    style: "currency",
+  });
+
+  return formatter.format(service.priceCents / 100);
 }
 
 function validateBookingForm({

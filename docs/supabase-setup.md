@@ -30,6 +30,7 @@ Run these files in Supabase SQL Editor:
 2. `supabase/migrations/0002_seed_services_and_public_busy_slots.sql`
 3. `supabase/migrations/0003_restrict_admin_access.sql`
 4. `supabase/migrations/0004_appointment_data_quality.sql`
+5. `supabase/migrations/0005_seed_service_prices.sql`
 
 If `0004_appointment_data_quality.sql` fails because old test data violates a rule, run:
 
@@ -46,6 +47,7 @@ The second file inserts the initial services and creates a public function that 
 - Public users can read active services.
 - Public users can request appointments as `pending_approval`.
 - Supabase rejects low-quality appointment data, such as invalid email, too-short names, malformed phone numbers, or one-character notes.
+- Services can show ARS prices from `price_cents` and `currency`.
 - Public users can only see busy time windows, not patient names or emails.
 - The admin approval panel requires a Supabase Auth user that is also listed in `public.admin_users`.
 - Only listed admins can read appointments and update their status.

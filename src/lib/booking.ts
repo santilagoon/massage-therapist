@@ -5,6 +5,7 @@ export type Service = {
   slug: string;
   durationMinutes: number;
   priceLabel: string;
+  priceCents?: number | null;
   title: Record<Locale, string>;
   description: Record<Locale, string>;
 };
@@ -40,6 +41,7 @@ export const services: Service[] = [
     slug: "therapeutic-60",
     durationMinutes: 60,
     priceLabel: "ARS",
+    priceCents: 5500000,
     title: {
       es: "Masaje terapeutico",
       en: "Therapeutic massage",
@@ -56,6 +58,7 @@ export const services: Service[] = [
     slug: "sports-90",
     durationMinutes: 90,
     priceLabel: "ARS",
+    priceCents: 6500000,
     title: {
       es: "Masaje deportivo",
       en: "Sports massage",
@@ -72,6 +75,7 @@ export const services: Service[] = [
     slug: "deep-recovery-120",
     durationMinutes: 120,
     priceLabel: "ARS",
+    priceCents: 9000000,
     title: {
       es: "Recuperacion profunda",
       en: "Deep recovery",
@@ -134,6 +138,14 @@ export const translations = {
     phoneCountry: "Pais",
     phoneNumber: "Numero",
     notes: "Notas o motivo de consulta",
+    chooseService: "Elegi el servicio",
+    chooseDay: "Elegi el dia",
+    chooseTime: "Elegi el horario",
+    summary: "Resumen",
+    duration: "Duracion",
+    total: "Total",
+    priceToConfirm: "Precio a confirmar",
+    selected: "Seleccionado",
     nameError:
       "Ingresá nombre y apellido usando solo letras, espacios, apostrofes o guiones.",
     emailError: "Ingresá un email válido, por ejemplo nombre@email.com.",
@@ -211,6 +223,14 @@ export const translations = {
     phoneCountry: "Country",
     phoneNumber: "Number",
     notes: "Notes or reason for visit",
+    chooseService: "Choose a service",
+    chooseDay: "Choose a day",
+    chooseTime: "Choose a time",
+    summary: "Summary",
+    duration: "Duration",
+    total: "Total",
+    priceToConfirm: "Price to confirm",
+    selected: "Selected",
     nameError:
       "Enter first and last name using only letters, spaces, apostrophes, or hyphens.",
     emailError: "Enter a valid email, for example name@email.com.",
@@ -288,6 +308,14 @@ export const translations = {
     phoneCountry: "Страна",
     phoneNumber: "Номер",
     notes: "Комментарий или причина визита",
+    chooseService: "Выберите услугу",
+    chooseDay: "Выберите день",
+    chooseTime: "Выберите время",
+    summary: "Итог",
+    duration: "Длительность",
+    total: "Итого",
+    priceToConfirm: "Цена уточняется",
+    selected: "Выбрано",
     nameError:
       "Введите имя и фамилию, используя только буквы, пробелы, апострофы или дефисы.",
     emailError: "Введите корректный email, например name@email.com.",

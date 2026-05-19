@@ -12,6 +12,7 @@ type ServiceRow = {
   id: string;
   slug: string;
   duration_minutes: number;
+  price_cents: number | null;
   currency: string;
   title: Record<Locale, string>;
   description: Record<Locale, string>;
@@ -45,7 +46,7 @@ export async function loadRemoteServices() {
   const { data, error } = await withTimeout(
     supabase
       .from("services")
-      .select("id, slug, duration_minutes, currency, title, description")
+      .select("id, slug, duration_minutes, price_cents, currency, title, description")
       .eq("is_active", true)
       .order("duration_minutes", { ascending: true }),
     "Supabase did not respond while loading services.",
@@ -204,6 +205,7 @@ function mapServiceRow(row: ServiceRow): Service {
     slug: row.slug,
     durationMinutes: row.duration_minutes,
     priceLabel: row.currency,
+    priceCents: row.price_cents,
     title: row.title,
     description: row.description,
   };
