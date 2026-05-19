@@ -397,7 +397,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     setAdminUser(null);
     setAppointments([]);
     setAvailabilityBlocks([]);
-    setNotice(t.adminLoginRequired);
+    setNotice("");
   }
 
   async function refreshAdminData() {
@@ -524,7 +524,13 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   }
 
   if (isAdminPage) {
-    const adminNotice = notice && notice !== t.adminLoaded && notice !== t.remoteReady ? notice : "";
+    const adminNotice =
+      notice &&
+      notice !== t.adminLoaded &&
+      notice !== t.remoteReady &&
+      notice !== t.adminLoginRequired
+        ? notice
+        : "";
 
     return (
       <main className="min-h-screen bg-white text-[#111111]">
@@ -575,7 +581,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
 
           <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:py-10">
             {adminNotice ? (
-              <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
+              <p className="mx-auto w-full max-w-sm rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
                 {adminNotice}
               </p>
             ) : null}
@@ -2165,10 +2171,10 @@ function AdminLogin({
   }
 
   return (
-    <form
-      onSubmit={submitLogin}
-      className="mx-auto mt-6 grid w-full max-w-md gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm sm:p-6"
-    >
+    <form onSubmit={submitLogin} className="mx-auto mt-10 grid w-full max-w-sm gap-3 rounded-2xl border border-[#e5e5e5] bg-white p-4 shadow-sm">
+      <div className="mb-1 text-center">
+        <h1 className="text-lg font-semibold text-[#111111]">{t.login}</h1>
+      </div>
       <Field label={t.email}>
         <input
           required
@@ -2180,7 +2186,7 @@ function AdminLogin({
               email: event.target.value,
             }))
           }
-          className={inputClass}
+          className={adminLoginInputClass}
         />
       </Field>
 
@@ -2195,14 +2201,14 @@ function AdminLogin({
               password: event.target.value,
             }))
           }
-          className={inputClass}
+          className={adminLoginInputClass}
         />
       </Field>
 
       <button
         type="submit"
         disabled={isLoading}
-        className="h-11 cursor-pointer rounded-xl bg-[#36594a] px-4 text-sm font-semibold text-white transition hover:bg-[#294438] disabled:cursor-not-allowed disabled:bg-[#9aa79f]"
+        className="mt-1 h-10 cursor-pointer rounded-xl bg-[#111111] px-4 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
       >
         {isLoading ? t.loading : t.login}
       </button>
@@ -2321,6 +2327,9 @@ function Field({
 
 const inputClass =
   "min-h-12 w-full rounded-xl border border-[#d4d4d4] bg-white px-3 py-2 text-base outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15 sm:text-sm";
+
+const adminLoginInputClass =
+  "h-10 w-full rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
 
 function filterButtonClass(active: boolean) {
   return [
