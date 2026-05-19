@@ -351,12 +351,7 @@ export function BookingApp() {
 
     setIsLoadingAdmin(true);
     try {
-      const [remoteAppointments, remoteBlocks] = await Promise.all([
-        loadAdminAppointments(),
-        loadAdminBlocks(),
-      ]);
-      setAppointments(remoteAppointments);
-      setAvailabilityBlocks(remoteBlocks);
+      await refreshAdminData();
       setNotice(t.adminLoaded);
     } catch (error) {
       setNotice(`${t.localMode} ${getErrorMessage(error)}`);
@@ -368,15 +363,12 @@ export function BookingApp() {
   async function handleAdminLogin(email: string, password: string) {
     setIsLoadingAdmin(true);
     try {
-      const user = await signInAdmin(email, password);
+      const user = await signInAdmin(email.trim(), password);
       setAdminUser(user);
-      const [remoteAppointments, remoteBlocks] = await Promise.all([
-        loadAdminAppointments(),
-        loadAdminBlocks(),
-      ]);
-      setAppointments(remoteAppointments);
-      setAvailabilityBlocks(remoteBlocks);
       setNotice(t.adminLoaded);
+      void refreshAdminData().catch((error) => {
+        setNotice(`${t.adminLoaded} ${getErrorMessage(error)}`);
+      });
     } catch (error) {
       setNotice(getErrorMessage(error));
     } finally {
@@ -390,6 +382,19 @@ export function BookingApp() {
     setAppointments([]);
     setAvailabilityBlocks([]);
     setNotice(t.adminLoginRequired);
+  }
+
+  async function refreshAdminData() {
+    const remoteAppointments = await loadAdminAppointments();
+    setAppointments(remoteAppointments);
+
+    try {
+      const remoteBlocks = await loadAdminBlocks();
+      setAvailabilityBlocks(remoteBlocks);
+    } catch (error) {
+      setAvailabilityBlocks([]);
+      setNotice(`${t.adminLoaded} ${getErrorMessage(error)}`);
+    }
   }
 
   function openAdminAccess() {
