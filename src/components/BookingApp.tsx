@@ -41,7 +41,16 @@ import {
 
 const storageKey = "massage-therapist-mvp-appointments";
 type AdminFilter = "all" | "pending_approval" | "confirmed" | "future_confirmed";
-type AdminView = "agenda" | "requests" | "blocks";
+type AdminView =
+  | "panel"
+  | "services"
+  | "agenda"
+  | "requests"
+  | "blocks"
+  | "team"
+  | "clients"
+  | "income"
+  | "profile";
 type DisplayCurrency = "ARS" | "USD";
 type AppointmentPlace = "home" | "zapiola" | "other_studio";
 type BookingFormField =
@@ -68,6 +77,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   const isAdminPage = mode === "admin";
   const [locale, setLocale] = useState<Locale>("es");
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("ARS");
+  const [adminView, setAdminView] = useState<AdminView>("panel");
   const [availableServices, setAvailableServices] = useState(fallbackServices);
   const [serviceId, setServiceId] = useState(fallbackServices[0].id);
   const [date, setDate] = useState(getInitialDate);
@@ -148,7 +158,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         setAvailableServices(remoteServices);
         setServiceId(remoteServices[0].id);
         setRemoteMode(true);
-        setNotice(t.remoteReady);
+        setNotice("");
       } catch (error) {
         if (cancelled) {
           return;
@@ -171,7 +181,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     return () => {
       cancelled = true;
     };
-  }, [t.localMode, t.remoteReady]);
+  }, [t.localMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -355,7 +365,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     setIsLoadingAdmin(true);
     try {
       await refreshAdminData();
-      setNotice(t.adminLoaded);
+      setNotice("");
     } catch (error) {
       logTechnicalError(error);
       setNotice(t.systemError);
@@ -369,10 +379,10 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     try {
       const user = await signInAdmin(email.trim(), password);
       setAdminUser(user);
-      setNotice(t.adminLoaded);
+      setNotice("");
       void refreshAdminData().catch((error) => {
         logTechnicalError(error);
-        setNotice(t.adminLoaded);
+        setNotice("");
       });
     } catch (error) {
       logTechnicalError(error);
@@ -400,7 +410,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     } catch (error) {
       setAvailabilityBlocks([]);
       logTechnicalError(error);
-      setNotice(t.adminLoaded);
+      setNotice("");
     }
   }
 
@@ -514,6 +524,8 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   }
 
   if (isAdminPage) {
+    const adminNotice = notice && notice !== t.adminLoaded && notice !== t.remoteReady ? notice : "";
+
     return (
       <main className="min-h-screen bg-white text-[#111111]">
         <section className="mx-auto flex min-h-screen w-full flex-col">
@@ -522,16 +534,20 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
               <a href="/" className="text-sm font-semibold tracking-[0.12em] text-[#111111]">
                 MM
               </a>
-              <div className="rounded-full border border-[#e5e5e5] bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#404040]">
-                {t.adminAgenda}
-              </div>
+              {adminUser ? (
+                <AdminTopNav adminView={adminView} t={t} onViewChange={setAdminView} />
+              ) : (
+                <div className="rounded-full border border-[#e5e5e5] bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#404040]">
+                  {t.adminPanel}
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={openAdminAccess}
                   title={adminUser ? t.logout : t.loginAdmin}
                   aria-label={adminUser ? t.logout : t.loginAdmin}
-                  className="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
+                  className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
                 >
                   <UserIcon />
                   <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
@@ -545,7 +561,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                   id="admin-language"
                   value={locale}
                   onChange={(event) => setLocale(event.target.value as Locale)}
-                  className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
+                  className="h-10 cursor-pointer rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
                 >
                   {locales.map((item) => (
                     <option key={item} value={item}>
@@ -558,12 +574,13 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
           </header>
 
           <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:py-10">
-            {notice || isLoadingRemote ? (
+            {adminNotice ? (
               <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
-                {isLoadingRemote ? t.loading : notice}
+                {adminNotice}
               </p>
             ) : null}
             <AdminPanel
+              adminView={adminView}
               appointments={appointments}
               availabilityBlocks={availabilityBlocks}
               services={availableServices}
@@ -621,7 +638,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                 onClick={openAdminAccess}
                 title={adminUser ? t.logout : t.loginAdmin}
                 aria-label={adminUser ? t.logout : t.loginAdmin}
-                className="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
+                className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
               >
                 <UserIcon />
                 <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
@@ -637,7 +654,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                 id="currency"
                 value={displayCurrency}
                 onChange={(event) => setDisplayCurrency(event.target.value as DisplayCurrency)}
-                className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
+                className="h-10 cursor-pointer rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
               >
                 <option value="ARS">{t.arsCurrency}</option>
                 <option value="USD">{t.usdCurrency}</option>
@@ -651,7 +668,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                 id="language"
                 value={locale}
                 onChange={(event) => setLocale(event.target.value as Locale)}
-                className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
+                className="h-10 cursor-pointer rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
               >
                 {locales.map((item) => (
                   <option key={item} value={item}>
@@ -1107,6 +1124,7 @@ function SummaryRow({
 }
 
 function AdminPanel({
+  adminView,
   appointments,
   availabilityBlocks,
   services,
@@ -1120,6 +1138,7 @@ function AdminPanel({
   onCreateBlock,
   onStatusChange,
 }: {
+  adminView: AdminView;
   appointments: Appointment[];
   availabilityBlocks: AvailabilityBlock[];
   services: typeof fallbackServices;
@@ -1138,8 +1157,8 @@ function AdminPanel({
   }) => Promise<void>;
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
 }) {
-  const [adminView, setAdminView] = useState<AdminView>("agenda");
   const [filter, setFilter] = useState<AdminFilter>("all");
+  const [requestSearch, setRequestSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(getTodayDateValue());
   const stats = getAdminStats(appointments);
   const dateOptions = useMemo(() => getDateOptions(10), []);
@@ -1160,6 +1179,35 @@ function AdminPanel({
   const selectedDayBlocks = availabilityBlocks
     .filter((block) => isSameDateValue(block.startsAt, selectedDate))
     .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
+  const requestQuery = requestSearch.trim().toLowerCase();
+  const requestAppointments = visibleAppointments
+    .filter((appointment) => {
+      if (!requestQuery) {
+        return true;
+      }
+
+      const service = findServiceInList(appointment.serviceId, services);
+      return [
+        appointment.patientName,
+        appointment.patientEmail,
+        appointment.patientPhone,
+        service.title[locale],
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(requestQuery);
+    })
+    .sort((first, second) => {
+      if (first.status === "pending_approval" && second.status !== "pending_approval") {
+        return -1;
+      }
+
+      if (first.status !== "pending_approval" && second.status === "pending_approval") {
+        return 1;
+      }
+
+      return first.startsAt.localeCompare(second.startsAt);
+    });
 
   if (!adminUser) {
     return <AdminLogin isLoading={isLoading} t={t} onLogin={onLogin} />;
@@ -1167,30 +1215,26 @@ function AdminPanel({
 
   return (
     <div className="grid gap-5">
-      <AdminHeader
-        adminUser={adminUser}
-        isLoading={isLoading}
-        t={t}
-        onLogout={onLogout}
-        onRefresh={onRefresh}
-      />
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-1">
-        {([
-          ["agenda", t.adminAgenda],
-          ["requests", t.adminRequests],
-          ["blocks", t.adminBlocks],
-        ] as const).map(([view, label]) => (
-          <button
-            key={view}
-            type="button"
-            onClick={() => setAdminView(view)}
-            className={tabClass(adminView === view)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <AdminStats stats={stats} t={t} />
+      {adminView === "panel" ? (
+        <AdminDashboard
+          appointments={appointments}
+          availabilityBlocks={availabilityBlocks}
+          dateOptions={dateOptions}
+          isLoading={isLoading}
+          locale={locale}
+          selectedDate={selectedDate}
+          services={services}
+          stats={stats}
+          t={t}
+          onDateChange={setSelectedDate}
+          onRefresh={onRefresh}
+          onStatusChange={onStatusChange}
+        />
+      ) : null}
+
+      {adminView === "services" ? (
+        <AdminServices services={services} locale={locale} t={t} />
+      ) : null}
 
       {adminView === "agenda" ? (
         <AdminAgenda
@@ -1203,6 +1247,22 @@ function AdminPanel({
           t={t}
           isLoading={isLoading}
           onDateChange={setSelectedDate}
+          onStatusChange={onStatusChange}
+        />
+      ) : null}
+
+      {adminView === "requests" ? (
+        <AdminRequests
+          appointments={requestAppointments}
+          filter={filter}
+          isLoading={isLoading}
+          locale={locale}
+          requestSearch={requestSearch}
+          services={services}
+          stats={stats}
+          t={t}
+          onFilterChange={setFilter}
+          onSearchChange={setRequestSearch}
           onStatusChange={onStatusChange}
         />
       ) : null}
@@ -1220,8 +1280,218 @@ function AdminPanel({
         />
       ) : null}
 
-      {adminView === "requests" ? (
-        <>
+      {adminView === "team" ? <AdminPlaceholder title={t.adminTeam} copy={t.teamPending} /> : null}
+
+      {adminView === "clients" ? (
+        <AdminClients appointments={appointments} locale={locale} t={t} />
+      ) : null}
+
+      {adminView === "income" ? <AdminIncome appointments={appointments} services={services} t={t} /> : null}
+
+      {adminView === "profile" ? (
+        <AdminProfile
+          adminUser={adminUser}
+          isLoading={isLoading}
+          t={t}
+          onLogout={onLogout}
+          onRefresh={onRefresh}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AdminTopNav({
+  adminView,
+  t,
+  onViewChange,
+}: {
+  adminView: AdminView;
+  t: Record<string, string>;
+  onViewChange: (view: AdminView) => void;
+}) {
+  const items: Array<[AdminView, string]> = [
+    ["panel", t.adminPanel],
+    ["services", t.adminServices],
+    ["agenda", t.adminAgenda],
+    ["requests", t.adminRequests],
+    ["blocks", t.adminBlocks],
+    ["team", t.adminTeam],
+    ["clients", t.adminClients],
+    ["income", t.adminIncome],
+    ["profile", t.adminProfile],
+  ];
+
+  return (
+    <nav className="-mx-2 flex max-w-[42rem] flex-1 items-center gap-1 overflow-x-auto rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1">
+      {items.map(([view, label]) => (
+        <button
+          key={view}
+          type="button"
+          onClick={() => onViewChange(view)}
+          className={[
+            "h-9 shrink-0 cursor-pointer rounded-full px-3 text-sm font-semibold transition",
+            adminView === view
+              ? "bg-[#111111] text-white"
+              : "text-[#737373] hover:bg-white hover:text-[#111111]",
+          ].join(" ")}
+        >
+          {label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function AdminDashboard({
+  appointments,
+  availabilityBlocks,
+  dateOptions,
+  isLoading,
+  locale,
+  selectedDate,
+  services,
+  stats,
+  t,
+  onDateChange,
+  onRefresh,
+  onStatusChange,
+}: {
+  appointments: Appointment[];
+  availabilityBlocks: AvailabilityBlock[];
+  dateOptions: ReturnType<typeof getDateOptions>;
+  isLoading: boolean;
+  locale: Locale;
+  selectedDate: string;
+  services: typeof fallbackServices;
+  stats: ReturnType<typeof getAdminStats>;
+  t: Record<string, string>;
+  onDateChange: (date: string) => void;
+  onRefresh: () => Promise<void>;
+  onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
+}) {
+  const today = getTodayDateValue();
+  const todayAppointments = appointments.filter((appointment) =>
+    isSameDateValue(appointment.startsAt, today),
+  );
+  const todayConfirmed = todayAppointments.filter(
+    (appointment) => appointment.status === "confirmed",
+  );
+  const todayPending = todayAppointments.filter(
+    (appointment) => appointment.status === "pending_approval",
+  );
+  const todayPatients = new Set(
+    todayAppointments.map((appointment) => appointment.patientEmail || appointment.patientName),
+  ).size;
+  const todayBlocks = availabilityBlocks.filter((block) => isSameDateValue(block.startsAt, today));
+  const selectedDateAppointments = appointments.filter((appointment) =>
+    isSameDateValue(appointment.startsAt, selectedDate),
+  );
+  const selectedDateBlocks = availabilityBlocks.filter((block) =>
+    isSameDateValue(block.startsAt, selectedDate),
+  );
+  const availableToday = services[0]
+    ? getAvailableSlots(today, services[0], [
+        ...todayAppointments,
+        ...todayBlocks.map((block) => ({
+          id: block.id,
+          serviceId: services[0].id,
+          startsAt: block.startsAt,
+          endsAt: block.endsAt,
+          patientName: t.blockedTime,
+          patientEmail: "",
+          patientPhone: "",
+          language: locale,
+          notes: block.reason ?? "",
+          status: "confirmed" as AppointmentStatus,
+          createdAt: block.createdAt,
+        })),
+      ]).length
+    : 0;
+
+  return (
+    <section className="grid gap-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold text-[#111111]">{t.adminGreeting}</h1>
+          <p className="mt-2 text-sm text-[#737373]">
+            {formatSummaryDate(`${today}T00:00:00`, locale)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void onRefresh()}
+          disabled={isLoading}
+          className="h-10 w-fit cursor-pointer rounded-xl border border-[#d4d4d4] px-4 text-sm font-semibold text-[#404040] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isLoading ? t.loading : t.refresh}
+        </button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <AdminStat label={t.todayPatients} value={todayPatients} />
+        <AdminStat label={t.todayConfirmed} value={todayConfirmed.length} />
+        <AdminStat label={t.todayPending} value={todayPending.length} />
+        <AdminStat label={t.todayAvailable} value={availableToday} />
+      </div>
+
+      <AdminStats stats={stats} t={t} />
+
+      <AdminAgenda
+        appointments={selectedDateAppointments}
+        blocks={selectedDateBlocks}
+        dateOptions={dateOptions}
+        isLoading={isLoading}
+        locale={locale}
+        selectedDate={selectedDate}
+        services={services}
+        t={t}
+        onDateChange={onDateChange}
+        onStatusChange={onStatusChange}
+      />
+    </section>
+  );
+}
+
+function AdminRequests({
+  appointments,
+  filter,
+  isLoading,
+  locale,
+  requestSearch,
+  services,
+  stats,
+  t,
+  onFilterChange,
+  onSearchChange,
+  onStatusChange,
+}: {
+  appointments: Appointment[];
+  filter: AdminFilter;
+  isLoading: boolean;
+  locale: Locale;
+  requestSearch: string;
+  services: typeof fallbackServices;
+  stats: ReturnType<typeof getAdminStats>;
+  t: Record<string, string>;
+  onFilterChange: (filter: AdminFilter) => void;
+  onSearchChange: (value: string) => void;
+  onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
+}) {
+  return (
+    <section className="grid gap-4">
+      <div>
+        <h1 className="text-3xl font-semibold text-[#111111]">{t.adminRequests}</h1>
+        <p className="mt-2 text-sm text-[#737373]">{t.requestsIntro}</p>
+      </div>
+
+      <input
+        value={requestSearch}
+        onChange={(event) => onSearchChange(event.target.value)}
+        placeholder={t.requestSearchPlaceholder}
+        className={`${inputClass} max-w-xl`}
+      />
+
       <div className="flex flex-wrap gap-2">
         {([
           ["all", t.allAppointments, stats.total],
@@ -1232,32 +1502,195 @@ function AdminPanel({
           <button
             key={value}
             type="button"
-            onClick={() => setFilter(value)}
+            onClick={() => onFilterChange(value)}
             className={filterButtonClass(filter === value)}
           >
             {label} · {count}
           </button>
         ))}
       </div>
-      {visibleAppointments.length === 0 ? (
-        <p className="rounded-lg border border-[#d9d0c3] bg-white p-4 text-sm text-[#5b554e]">
+
+      {appointments.length === 0 ? (
+        <p className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-5 text-sm text-[#737373]">
           {t.noFilteredAppointments}
         </p>
       ) : null}
-      {visibleAppointments.map((appointment) => (
-        <AppointmentRow
-          key={appointment.id}
-          appointment={appointment}
-          services={services}
-          locale={locale}
-          t={t}
-          isUpdating={isLoading}
-          onStatusChange={onStatusChange}
-        />
+
+      <div className="grid gap-3">
+        {appointments.map((appointment) => (
+          <AppointmentRow
+            key={appointment.id}
+            appointment={appointment}
+            services={services}
+            locale={locale}
+            t={t}
+            isUpdating={isLoading}
+            onStatusChange={onStatusChange}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminServices({
+  services,
+  locale,
+  t,
+}: {
+  services: typeof fallbackServices;
+  locale: Locale;
+  t: Record<string, string>;
+}) {
+  return (
+    <section className="mx-auto grid w-full max-w-3xl gap-4">
+      <div>
+        <h1 className="text-3xl font-semibold text-[#111111]">{t.adminServices}</h1>
+        <p className="mt-2 text-sm text-[#737373]">{t.servicesPending}</p>
+      </div>
+      {services.map((service) => (
+        <article
+          key={service.id}
+          className="flex items-center justify-between gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-4"
+        >
+          <div>
+            <h2 className="font-semibold text-[#111111]">{service.title[locale]}</h2>
+            <p className="mt-1 text-sm text-[#737373]">{service.durationMinutes} min</p>
+          </div>
+          <p className="text-sm font-semibold text-[#111111]">
+            {service.priceUsdCents ? `$${service.priceUsdCents / 100} USD` : t.priceToConfirm}
+          </p>
+        </article>
       ))}
-        </>
-      ) : null}
-    </div>
+    </section>
+  );
+}
+
+function AdminClients({
+  appointments,
+  locale,
+  t,
+}: {
+  appointments: Appointment[];
+  locale: Locale;
+  t: Record<string, string>;
+}) {
+  const clients = getAdminClients(appointments);
+
+  return (
+    <section className="grid gap-4">
+      <div>
+        <h1 className="text-3xl font-semibold text-[#111111]">{t.adminClients}</h1>
+        <p className="mt-2 text-sm text-[#737373]">
+          {clients.length} {t.clientsRegistered}
+        </p>
+      </div>
+
+      {clients.length === 0 ? (
+        <p className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-8 text-center text-sm text-[#737373]">
+          {t.noClientsYet}
+        </p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {clients.map((client) => (
+            <article key={client.key} className="rounded-2xl border border-[#e5e5e5] bg-white p-4">
+              <h2 className="font-semibold text-[#111111]">{client.name}</h2>
+              <p className="mt-1 text-sm text-[#737373]">{client.email}</p>
+              {client.phone ? <p className="mt-1 text-sm text-[#737373]">{client.phone}</p> : null}
+              <p className="mt-3 text-sm font-semibold text-[#404040]">
+                {client.count} {t.appointmentsLabel} · {formatDateTime(client.lastVisit, locale)}
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AdminIncome({
+  appointments,
+  services,
+  t,
+}: {
+  appointments: Appointment[];
+  services: typeof fallbackServices;
+  t: Record<string, string>;
+}) {
+  const completed = appointments.filter((appointment) => appointment.status === "completed");
+  const totalUsd = completed.reduce((sum, appointment) => {
+    const service = findServiceInList(appointment.serviceId, services);
+    return sum + (service.priceUsdCents ? service.priceUsdCents / 100 : 0);
+  }, 0);
+
+  return (
+    <section className="grid gap-4">
+      <div>
+        <h1 className="text-3xl font-semibold text-[#111111]">{t.adminIncome}</h1>
+        <p className="mt-2 text-sm text-[#737373]">{t.incomePending}</p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <AdminStat label={t.dailyIncome} value={0} />
+        <AdminStat label={t.monthlyIncome} value={totalUsd} />
+        <AdminStat label={t.completedAppointments} value={completed.length} />
+      </div>
+      <p className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-8 text-center text-sm text-[#737373]">
+        {t.incomeManualPending}
+      </p>
+    </section>
+  );
+}
+
+function AdminProfile({
+  adminUser,
+  isLoading,
+  t,
+  onLogout,
+  onRefresh,
+}: {
+  adminUser: User | null;
+  isLoading: boolean;
+  t: Record<string, string>;
+  onLogout: () => Promise<void>;
+  onRefresh: () => Promise<void>;
+}) {
+  return (
+    <section className="mx-auto grid w-full max-w-xl gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-5">
+      <div>
+        <h1 className="text-2xl font-semibold text-[#111111]">{t.adminProfile}</h1>
+        {adminUser ? (
+          <p className="mt-2 text-sm text-[#737373]">
+            {t.loggedInAs} {adminUser.email}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void onRefresh()}
+          disabled={isLoading}
+          className="h-10 cursor-pointer rounded-xl border border-[#d4d4d4] px-4 text-sm font-semibold text-[#404040] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isLoading ? t.loading : t.refresh}
+        </button>
+        <button
+          type="button"
+          onClick={() => void onLogout()}
+          className="h-10 cursor-pointer rounded-xl border border-[#b86b4e] px-4 text-sm font-semibold text-[#8a4329] transition hover:bg-[#fff7f2]"
+        >
+          {t.logout}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function AdminPlaceholder({ title, copy }: { title: string; copy: string }) {
+  return (
+    <section className="mx-auto grid w-full max-w-3xl gap-2 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-8 text-center">
+      <h1 className="text-3xl font-semibold text-[#111111]">{title}</h1>
+      <p className="text-sm leading-6 text-[#737373]">{copy}</p>
+    </section>
   );
 }
 
@@ -1299,7 +1732,7 @@ function AdminAgenda({
             value={selectedDate}
             min={getTodayDateValue()}
             onChange={(event) => onDateChange(event.target.value)}
-            className={inputClass}
+            className={`${inputClass} cursor-pointer`}
           />
         </Field>
       </div>
@@ -1474,7 +1907,7 @@ function AdminBlocks({
         <button
           type="submit"
           disabled={isLoading}
-          className="h-12 rounded-xl bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
+          className="h-12 cursor-pointer rounded-xl bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
         >
           {isLoading ? t.loading : t.blockDay}
         </button>
@@ -1733,7 +2166,7 @@ function AdminLogin({
   return (
     <form
       onSubmit={submitLogin}
-      className="grid gap-4 rounded-lg border border-[#d9d0c3] bg-white p-5"
+      className="mx-auto mt-6 grid w-full max-w-md gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm sm:p-6"
     >
       <Field label={t.email}>
         <input
@@ -1768,56 +2201,11 @@ function AdminLogin({
       <button
         type="submit"
         disabled={isLoading}
-        className="h-11 rounded-md bg-[#36594a] px-4 text-sm font-semibold text-white hover:bg-[#294438] disabled:cursor-not-allowed disabled:bg-[#9aa79f]"
+        className="h-11 cursor-pointer rounded-xl bg-[#36594a] px-4 text-sm font-semibold text-white transition hover:bg-[#294438] disabled:cursor-not-allowed disabled:bg-[#9aa79f]"
       >
         {isLoading ? t.loading : t.login}
       </button>
     </form>
-  );
-}
-
-function AdminHeader({
-  adminUser,
-  isLoading,
-  t,
-  onLogout,
-  onRefresh,
-}: {
-  adminUser: User | null;
-  isLoading: boolean;
-  t: Record<string, string>;
-  onLogout: () => Promise<void>;
-  onRefresh: () => Promise<void>;
-}) {
-  return (
-    <div className="flex flex-col gap-3 rounded-lg border border-[#d9d0c3] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 className="text-lg font-semibold">{t.adminTitle}</h2>
-        {adminUser ? (
-          <p className="mt-1 text-sm text-[#5b554e]">
-            {t.loggedInAs} {adminUser.email}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => void onRefresh()}
-          disabled={isLoading}
-          className="h-10 rounded-md border border-[#bdb3a5] px-4 text-sm font-semibold text-[#413c36] hover:bg-[#f6f3ee] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isLoading ? t.loading : t.refresh}
-        </button>
-        <button
-          type="button"
-          onClick={() => void onLogout()}
-          className="h-10 rounded-md border border-[#b86b4e] px-4 text-sm font-semibold text-[#8a4329] hover:bg-[#fff7f2]"
-        >
-          {t.logout}
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -1933,18 +2321,9 @@ function Field({
 const inputClass =
   "min-h-12 w-full rounded-xl border border-[#d4d4d4] bg-white px-3 py-2 text-base outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15 sm:text-sm";
 
-function tabClass(active: boolean) {
-  return [
-    "h-10 rounded-full px-4 text-sm font-semibold transition",
-    active
-      ? "bg-[#111111] text-white"
-      : "text-[#737373] hover:text-[#111111]",
-  ].join(" ");
-}
-
 function filterButtonClass(active: boolean) {
   return [
-    "h-10 rounded-md border px-3 text-sm font-semibold transition",
+    "h-10 cursor-pointer rounded-md border px-3 text-sm font-semibold transition",
     active
       ? "border-[#36594a] bg-[#36594a] text-white"
       : "border-[#bdb3a5] bg-white text-[#413c36] hover:bg-[#f6f3ee]",
@@ -1953,7 +2332,7 @@ function filterButtonClass(active: boolean) {
 
 function serviceCardClass(active: boolean) {
   return [
-    "rounded-2xl border p-4 text-left transition",
+    "cursor-pointer rounded-2xl border p-4 text-left transition",
     "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
     active
       ? "border-[#111111] bg-white shadow-sm"
@@ -1963,7 +2342,7 @@ function serviceCardClass(active: boolean) {
 
 function datePillClass(active: boolean) {
   return [
-    "flex min-w-[4.75rem] flex-col items-center rounded-2xl border px-4 py-3 transition",
+    "flex min-w-[4.75rem] cursor-pointer flex-col items-center rounded-2xl border px-4 py-3 transition",
     "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
     active
       ? "border-[#111111] bg-[#111111] text-white"
@@ -1973,7 +2352,7 @@ function datePillClass(active: boolean) {
 
 function timeButtonClass(active: boolean) {
   return [
-    "h-12 rounded-xl border text-sm font-semibold transition",
+    "h-12 cursor-pointer rounded-xl border text-sm font-semibold transition",
     "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
     active
       ? "border-[#111111] bg-[#111111] text-white"
@@ -1983,7 +2362,7 @@ function timeButtonClass(active: boolean) {
 
 function choiceCardClass(active: boolean) {
   return [
-    "min-h-14 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition",
+    "min-h-14 cursor-pointer rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition",
     "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
     active
       ? "border-[#111111] bg-[#111111] text-white"
@@ -2018,6 +2397,49 @@ function getAdminStats(appointments: Appointment[]) {
         appointment.status === "confirmed" && new Date(appointment.startsAt) >= now,
     ).length,
   };
+}
+
+function getAdminClients(appointments: Appointment[]) {
+  const clients = new Map<
+    string,
+    {
+      key: string;
+      name: string;
+      email: string;
+      phone: string;
+      count: number;
+      lastVisit: string;
+    }
+  >();
+
+  appointments.forEach((appointment) => {
+    const key = appointment.patientEmail || appointment.patientName;
+    const current = clients.get(key);
+
+    if (!current) {
+      clients.set(key, {
+        key,
+        name: appointment.patientName,
+        email: appointment.patientEmail,
+        phone: appointment.patientPhone,
+        count: 1,
+        lastVisit: appointment.startsAt,
+      });
+      return;
+    }
+
+    current.count += 1;
+    if (new Date(appointment.startsAt) > new Date(current.lastVisit)) {
+      current.lastVisit = appointment.startsAt;
+    }
+    if (!current.phone && appointment.patientPhone) {
+      current.phone = appointment.patientPhone;
+    }
+  });
+
+  return Array.from(clients.values()).sort((first, second) =>
+    second.lastVisit.localeCompare(first.lastVisit),
+  );
 }
 
 function sanitizePersonName(value: string) {
