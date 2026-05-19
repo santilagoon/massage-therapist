@@ -47,7 +47,7 @@ The second file inserts the initial services and creates a public function that 
 - Public users can read active services.
 - Public users can request appointments as `pending_approval`.
 - Supabase rejects low-quality appointment data, such as invalid email, too-short names, malformed phone numbers, or one-character notes.
-- Services can show ARS prices from `price_cents` and `currency`.
+- Services can show ARS prices from `price_cents` and USD prices from `price_usd_cents`.
 - Public users can only see busy time windows, not patient names or emails.
 - The admin approval panel requires a Supabase Auth user that is also listed in `public.admin_users`.
 - Only listed admins can read appointments and update their status.

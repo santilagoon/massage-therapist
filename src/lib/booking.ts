@@ -6,6 +6,7 @@ export type Service = {
   durationMinutes: number;
   priceLabel: string;
   priceCents?: number | null;
+  priceUsdCents?: number | null;
   title: Record<Locale, string>;
   description: Record<Locale, string>;
 };
@@ -42,10 +43,11 @@ export const services: Service[] = [
     durationMinutes: 60,
     priceLabel: "ARS",
     priceCents: 5500000,
+    priceUsdCents: 4000,
     title: {
-      es: "Masaje terapeutico",
-      en: "Therapeutic massage",
-      ru: "Терапевтический массаж",
+      es: "Masaje descontracturante",
+      en: "Deep tissue massage",
+      ru: "Глубокий расслабляющий массаж",
     },
     description: {
       es: "Para dolor muscular, tension cervical, espalda y recuperacion general.",
@@ -59,6 +61,7 @@ export const services: Service[] = [
     durationMinutes: 90,
     priceLabel: "ARS",
     priceCents: 6500000,
+    priceUsdCents: 4500,
     title: {
       es: "Masaje deportivo",
       en: "Sports massage",
@@ -76,10 +79,11 @@ export const services: Service[] = [
     durationMinutes: 120,
     priceLabel: "ARS",
     priceCents: 9000000,
+    priceUsdCents: 6500,
     title: {
-      es: "Recuperacion profunda",
-      en: "Deep recovery",
-      ru: "Глубокое восстановление",
+      es: "Masaje descontracturante extendido",
+      en: "Extended deep tissue massage",
+      ru: "Расширенный глубокий массаж",
     },
     description: {
       es: "Sesion extendida para abordaje completo y trabajo por zonas.",
@@ -93,6 +97,7 @@ export const services: Service[] = [
     durationMinutes: 60,
     priceLabel: "ARS",
     priceCents: null,
+    priceUsdCents: null,
     title: {
       es: "Servicio de rehabilitacion corporal",
       en: "Body rehabilitation service",
@@ -149,7 +154,17 @@ export const translations = {
       "Sesiones de masaje terapeutico y deportivo orientadas a aliviar tension, mejorar movilidad y acompañar la recuperacion corporal.",
     bookTab: "Reservar",
     adminTab: "Panel",
+    loginAdmin: "Log in",
+    currency: "Moneda",
+    arsCurrency: "$ARG",
+    usdCurrency: "USD",
     language: "Idioma",
+    appointmentPlace: "Modalidad de atencion",
+    placeHome: "A domicilio",
+    placeZapiola: "Zapiola",
+    placeOtherStudio: "Otro domicilio de atencion",
+    patientAddress: "Direccion para domicilio",
+    addressError: "Ingresá la direccion para el servicio a domicilio.",
     service: "Servicio",
     date: "Fecha",
     time: "Horario",
@@ -246,7 +261,17 @@ export const translations = {
       "Therapeutic and sports massage sessions focused on easing tension, improving mobility, and supporting body recovery.",
     bookTab: "Book",
     adminTab: "Admin",
+    loginAdmin: "Log in",
+    currency: "Currency",
+    arsCurrency: "$ARG",
+    usdCurrency: "USD",
     language: "Language",
+    appointmentPlace: "Appointment location",
+    placeHome: "At home",
+    placeZapiola: "Zapiola",
+    placeOtherStudio: "Other treatment location",
+    patientAddress: "Address for home visit",
+    addressError: "Enter the address for the home visit.",
     service: "Service",
     date: "Date",
     time: "Time",
@@ -344,7 +369,17 @@ export const translations = {
       "Сеансы терапевтического и спортивного массажа для снятия напряжения, улучшения подвижности и восстановления тела.",
     bookTab: "Запись",
     adminTab: "Панель",
+    loginAdmin: "Log in",
+    currency: "Валюта",
+    arsCurrency: "$ARG",
+    usdCurrency: "USD",
     language: "Язык",
+    appointmentPlace: "Место приема",
+    placeHome: "На дому",
+    placeZapiola: "Zapiola",
+    placeOtherStudio: "Другое место приема",
+    patientAddress: "Адрес для выезда на дом",
+    addressError: "Введите адрес для выезда на дом.",
     service: "Услуга",
     date: "Дата",
     time: "Время",

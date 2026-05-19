@@ -37,7 +37,15 @@ import {
 
 const storageKey = "massage-therapist-mvp-appointments";
 type AdminFilter = "all" | "pending_approval" | "confirmed" | "future_confirmed";
-type BookingFormField = "patientName" | "patientEmail" | "patientPhone" | "notes" | "slot";
+type DisplayCurrency = "ARS" | "USD";
+type AppointmentPlace = "home" | "zapiola" | "other_studio";
+type BookingFormField =
+  | "appointmentAddress"
+  | "patientName"
+  | "patientEmail"
+  | "patientPhone"
+  | "notes"
+  | "slot";
 type BookingFormErrors = Partial<Record<BookingFormField, string>>;
 
 const phoneCountries = [
@@ -53,6 +61,7 @@ const phoneCountries = [
 
 export function BookingApp() {
   const [locale, setLocale] = useState<Locale>("es");
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("ARS");
   const [activeTab, setActiveTab] = useState<"book" | "admin">("book");
   const [availableServices, setAvailableServices] = useState(fallbackServices);
   const [serviceId, setServiceId] = useState(fallbackServices[0].id);
@@ -78,6 +87,8 @@ export function BookingApp() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [remoteMode, setRemoteMode] = useState(isSupabaseConfigured);
   const [form, setForm] = useState({
+    appointmentPlace: "zapiola" as AppointmentPlace,
+    appointmentAddress: "",
     patientName: "",
     patientEmail: "",
     phoneCountryCode: "+54",
@@ -251,6 +262,8 @@ export function BookingApp() {
       selectedSlot,
       phoneCountry: selectedPhoneCountry,
       t,
+      appointmentAddress: form.appointmentAddress,
+      appointmentPlace: form.appointmentPlace,
     });
 
     if (Object.keys(validationErrors).length > 0) {
@@ -263,6 +276,12 @@ export function BookingApp() {
       return;
     }
 
+    const notesWithPlace = buildAppointmentNotes({
+      address: form.appointmentAddress,
+      notes: form.notes,
+      placeLabel: getAppointmentPlaceLabel(form.appointmentPlace, t),
+    });
+
     setFormErrors({});
     setIsSaving(true);
 
@@ -274,7 +293,7 @@ export function BookingApp() {
         patientEmail: normalizedEmail,
         patientPhone: normalizedPhone,
         language: locale,
-        notes: form.notes.trim(),
+        notes: notesWithPlace,
       };
 
       const appointment =
@@ -286,6 +305,8 @@ export function BookingApp() {
       setForm({
         patientName: "",
         patientEmail: "",
+        appointmentPlace: form.appointmentPlace,
+        appointmentAddress: "",
         phoneCountryCode: form.phoneCountryCode,
         patientPhone: "",
         notes: "",
@@ -307,7 +328,7 @@ export function BookingApp() {
         patientEmail: normalizedEmail,
         patientPhone: normalizedPhone,
         language: locale,
-        notes: form.notes.trim(),
+        notes: notesWithPlace,
       });
 
       setRemoteMode(false);
@@ -355,6 +376,12 @@ export function BookingApp() {
     setAdminUser(null);
     setAppointments([]);
     setNotice(t.adminLoginRequired);
+  }
+
+  function openAdminAccess() {
+    setShowAdminAccess(true);
+    setActiveTab("admin");
+    document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
   }
 
   useEffect(() => {
@@ -453,6 +480,25 @@ export function BookingApp() {
             </nav>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openAdminAccess}
+                className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium text-[#111111] transition hover:bg-[#fafafa]"
+              >
+                {t.loginAdmin}
+              </button>
+              <label className="sr-only" htmlFor="currency">
+                {t.currency}
+              </label>
+              <select
+                id="currency"
+                value={displayCurrency}
+                onChange={(event) => setDisplayCurrency(event.target.value as DisplayCurrency)}
+                className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
+              >
+                <option value="ARS">{t.arsCurrency}</option>
+                <option value="USD">{t.usdCurrency}</option>
+              </select>
               <label className="sr-only" htmlFor="language">
                 {t.language}
               </label>
@@ -541,8 +587,51 @@ export function BookingApp() {
                 className="grid gap-6 rounded-2xl border border-[#e5e5e5] bg-white p-4 shadow-sm sm:p-6"
               >
                 <div className="grid gap-3">
+                  <StepHeading number={1} label={t.appointmentPlace} />
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {(["home", "zapiola", "other_studio"] as const).map((place) => {
+                      const isSelected = form.appointmentPlace === place;
+
+                      return (
+                        <button
+                          key={place}
+                          type="button"
+                          onClick={() => {
+                            setForm((current) => ({
+                              ...current,
+                              appointmentPlace: place,
+                              appointmentAddress: place === "home" ? current.appointmentAddress : "",
+                            }));
+                            setFormErrors((current) => ({
+                              ...current,
+                              appointmentAddress: undefined,
+                            }));
+                          }}
+                          aria-pressed={isSelected}
+                          className={choiceCardClass(isSelected)}
+                        >
+                          {getAppointmentPlaceLabel(place, t)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {form.appointmentPlace === "home" ? (
+                    <Field label={t.patientAddress} error={formErrors.appointmentAddress}>
+                      <input
+                        required
+                        value={form.appointmentAddress}
+                        onChange={(event) =>
+                          updateFormField("appointmentAddress", event.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3">
                   <div id="services">
-                    <StepHeading number={1} label={t.chooseService} />
+                    <StepHeading number={2} label={t.chooseService} />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {availableServices.map((service) => {
@@ -575,7 +664,7 @@ export function BookingApp() {
                               {service.durationMinutes} min
                             </span>
                             <span className="font-semibold text-[#111111]">
-                              {formatServicePrice(service, locale, t)}
+                              {formatServicePrice(service, locale, t, displayCurrency)}
                             </span>
                           </span>
                         </button>
@@ -585,7 +674,7 @@ export function BookingApp() {
                 </div>
 
                 <div className="grid gap-3">
-                  <StepHeading number={2} label={t.chooseDay} />
+                  <StepHeading number={3} label={t.chooseDay} />
                   <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
                     {dateOptions.map((option) => {
                       const isSelected = option.value === date;
@@ -629,7 +718,7 @@ export function BookingApp() {
                 </div>
 
                 <div className="grid gap-3">
-                  <StepHeading number={3} label={t.chooseTime} />
+                  <StepHeading number={4} label={t.chooseTime} />
                   {availableSlots.length === 0 ? (
                     <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-4 text-sm text-[#525252]">
                       {t.noSlots}
@@ -664,13 +753,14 @@ export function BookingApp() {
                 <BookingSummary
                   date={date}
                   locale={locale}
+                  displayCurrency={displayCurrency}
                   selectedService={selectedService}
                   selectedSlot={selectedSlot}
                   t={t}
                 />
 
                 <div>
-                  <StepHeading number={4} label={t.patient} />
+                  <StepHeading number={5} label={t.patient} />
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <Field label={t.fullName} error={formErrors.patientName}>
                       <input
@@ -840,12 +930,14 @@ function StepHeading({ number, label }: { number: number; label: string }) {
 
 function BookingSummary({
   date,
+  displayCurrency,
   locale,
   selectedService,
   selectedSlot,
   t,
 }: {
   date: string;
+  displayCurrency: DisplayCurrency;
   locale: Locale;
   selectedService: (typeof fallbackServices)[number];
   selectedSlot: string;
@@ -873,7 +965,7 @@ function BookingSummary({
         <div className="mt-1 border-t border-[#e5e5e5] pt-3">
           <SummaryRow
             label={t.total}
-            value={formatServicePrice(selectedService, locale, t)}
+            value={formatServicePrice(selectedService, locale, t, displayCurrency)}
             strong
           />
         </div>
@@ -1414,6 +1506,16 @@ function timeButtonClass(active: boolean) {
   ].join(" ");
 }
 
+function choiceCardClass(active: boolean) {
+  return [
+    "min-h-14 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition",
+    "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
+    active
+      ? "border-[#111111] bg-[#111111] text-white"
+      : "border-[#e5e5e5] bg-[#fafafa] text-[#404040] hover:border-[#a3a3a3]",
+  ].join(" ");
+}
+
 function statusClass(status: AppointmentStatus) {
   const base = "w-fit rounded-full px-3 py-1 text-xs font-semibold";
   const colors: Record<AppointmentStatus, string> = {
@@ -1509,21 +1611,62 @@ function formatServicePrice(
   service: (typeof fallbackServices)[number],
   locale: Locale,
   t: Record<string, string>,
+  displayCurrency: DisplayCurrency,
 ) {
-  if (!service.priceCents) {
+  const priceCents =
+    displayCurrency === "USD" ? service.priceUsdCents : service.priceCents;
+  const currency = displayCurrency === "USD" ? "USD" : service.priceLabel;
+
+  if (!priceCents) {
     return t.priceToConfirm;
   }
 
   const formatter = new Intl.NumberFormat(locale === "es" ? "es-AR" : locale, {
-    currency: service.priceLabel,
+    currency,
     maximumFractionDigits: 0,
     style: "currency",
   });
 
-  return formatter.format(service.priceCents / 100);
+  return formatter.format(priceCents / 100);
+}
+
+function getAppointmentPlaceLabel(place: AppointmentPlace, t: Record<string, string>) {
+  const labels: Record<AppointmentPlace, string> = {
+    home: t.placeHome,
+    zapiola: t.placeZapiola,
+    other_studio: t.placeOtherStudio,
+  };
+
+  return labels[place];
+}
+
+function buildAppointmentNotes({
+  address,
+  notes,
+  placeLabel,
+}: {
+  address: string;
+  notes: string;
+  placeLabel: string;
+}) {
+  const parts = [`Modalidad: ${placeLabel}`];
+  const normalizedAddress = address.trim();
+  const normalizedNotes = notes.trim();
+
+  if (normalizedAddress) {
+    parts.push(`Direccion: ${normalizedAddress}`);
+  }
+
+  if (normalizedNotes) {
+    parts.push(normalizedNotes);
+  }
+
+  return parts.join("\n").slice(0, 600);
 }
 
 function validateBookingForm({
+  appointmentAddress,
+  appointmentPlace,
   name,
   email,
   phone,
@@ -1537,6 +1680,8 @@ function validateBookingForm({
   phone: string;
   notes: string;
   selectedSlot: string;
+  appointmentAddress: string;
+  appointmentPlace: AppointmentPlace;
   phoneCountry: (typeof phoneCountries)[number];
   t: Record<string, string>;
 }) {
@@ -1547,6 +1692,10 @@ function validateBookingForm({
 
   if (!selectedSlot) {
     errors.slot = t.slotError;
+  }
+
+  if (appointmentPlace === "home" && appointmentAddress.trim().length < 5) {
+    errors.appointmentAddress = t.addressError;
   }
 
   if (!namePattern.test(name)) {

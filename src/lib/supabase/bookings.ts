@@ -200,14 +200,17 @@ function withTimeout<T>(
 }
 
 function mapServiceRow(row: ServiceRow): Service {
+  const localFallback = localServices.find((service) => service.slug === row.slug);
+
   return {
     id: row.id,
     slug: row.slug,
     durationMinutes: row.duration_minutes,
     priceLabel: row.currency,
     priceCents: row.price_cents,
-    title: row.title,
-    description: row.description,
+    priceUsdCents: localFallback?.priceUsdCents ?? null,
+    title: localFallback?.title ?? row.title,
+    description: localFallback?.description ?? row.description,
   };
 }
 
