@@ -154,10 +154,11 @@ export function BookingApp() {
           return;
         }
 
+        logTechnicalError(error);
         setAvailableServices(fallbackServices);
         setServiceId(fallbackServices[0].id);
         setRemoteMode(false);
-        setNotice(`${t.localMode} ${getErrorMessage(error)}`);
+        setNotice(t.localMode);
       } finally {
         if (!cancelled) {
           setIsLoadingRemote(false);
@@ -189,7 +190,8 @@ export function BookingApp() {
       } catch (error) {
         if (!cancelled) {
           setBusyAppointments([]);
-          setNotice(`${t.localMode} ${getErrorMessage(error)}`);
+          logTechnicalError(error);
+          setNotice(t.localMode);
         }
       }
     }
@@ -248,7 +250,8 @@ export function BookingApp() {
       const remoteBusyAppointments = await loadBusyAppointments(targetDate);
       setBusyAppointments(remoteBusyAppointments);
     } catch (error) {
-      setNotice(`${t.localMode} ${getErrorMessage(error)}`);
+      logTechnicalError(error);
+      setNotice(t.localMode);
     }
   }
 
@@ -338,7 +341,8 @@ export function BookingApp() {
 
       setRemoteMode(false);
       setAppointments((current) => [appointment, ...current]);
-      setNotice(`${t.localMode} ${getErrorMessage(error)}`);
+      logTechnicalError(error);
+      setNotice(t.systemError);
     } finally {
       setIsSaving(false);
     }
@@ -354,7 +358,8 @@ export function BookingApp() {
       await refreshAdminData();
       setNotice(t.adminLoaded);
     } catch (error) {
-      setNotice(`${t.localMode} ${getErrorMessage(error)}`);
+      logTechnicalError(error);
+      setNotice(t.systemError);
     } finally {
       setIsLoadingAdmin(false);
     }
@@ -367,10 +372,12 @@ export function BookingApp() {
       setAdminUser(user);
       setNotice(t.adminLoaded);
       void refreshAdminData().catch((error) => {
-        setNotice(`${t.adminLoaded} ${getErrorMessage(error)}`);
+        logTechnicalError(error);
+        setNotice(t.adminLoaded);
       });
     } catch (error) {
-      setNotice(getErrorMessage(error));
+      logTechnicalError(error);
+      setNotice(t.signInError);
     } finally {
       setIsLoadingAdmin(false);
     }
@@ -393,7 +400,8 @@ export function BookingApp() {
       setAvailabilityBlocks(remoteBlocks);
     } catch (error) {
       setAvailabilityBlocks([]);
-      setNotice(`${t.adminLoaded} ${getErrorMessage(error)}`);
+      logTechnicalError(error);
+      setNotice(t.adminLoaded);
     }
   }
 
@@ -430,7 +438,8 @@ export function BookingApp() {
       setNotice(t.blockCreated);
       void refreshBusySlots(date);
     } catch (error) {
-      setNotice(getErrorMessage(error));
+      logTechnicalError(error);
+      setNotice(t.systemError);
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -461,7 +470,8 @@ export function BookingApp() {
         }
         void refreshBusySlots(date);
       } catch (error) {
-        setNotice(getErrorMessage(error));
+        logTechnicalError(error);
+        setNotice(t.systemError);
       } finally {
         setIsUpdatingStatus(false);
       }
@@ -1841,8 +1851,10 @@ function AppointmentRow({
   );
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown error.";
+function logTechnicalError(error: unknown) {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(error);
+  }
 }
 
 function Field({

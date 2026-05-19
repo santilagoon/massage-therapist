@@ -217,8 +217,10 @@ export const translations = {
     loggedInAs: "Sesión iniciada como",
     adminLoginRequired:
       "Para proteger los datos de pacientes, el panel requiere iniciar sesión.",
-    adminLoaded: "Panel conectado a Supabase.",
+    adminLoaded: "Ingreso correcto.",
     adminUpdated: "Turno actualizado.",
+    signInError: "No se pudo iniciar sesión. Revisá el email y la contraseña.",
+    systemError: "No se pudo completar la acción. Intentá nuevamente.",
     blockCreated: "Horario bloqueado correctamente.",
     blockDaysTitle: "Bloquear dias y horarios",
     blockDaysCopy: "Bloqueá dias libres, feriados, vacaciones o franjas donde no se atiende.",
@@ -244,12 +246,11 @@ export const translations = {
     cancelled: "Cancelado",
     completed: "Realizado",
     emptyAdmin: "Todavia no hay solicitudes.",
-    loading: "Conectando con Supabase...",
-    remoteReady: "Conectado a Supabase.",
-    localMode:
-      "Modo local activo. Revisá las variables de Supabase o ejecutá el SQL pendiente.",
+    loading: "Conectando...",
+    remoteReady: "Sistema conectado.",
+    localMode: "No se pudo conectar con el sistema de turnos.",
     remoteRequestSuccess:
-      "Solicitud enviada a Supabase. El turno queda pendiente de aprobacion.",
+      "Solicitud enviada. El turno queda pendiente de aprobacion.",
     emailSkipped:
       "El turno se guardo correctamente, pero el email no pudo enviarse o aun no esta configurado.",
     schedule: "",
@@ -351,8 +352,10 @@ export const translations = {
     loggedInAs: "Signed in as",
     adminLoginRequired:
       "To protect patient data, the admin panel requires sign in.",
-    adminLoaded: "Admin panel connected to Supabase.",
+    adminLoaded: "Signed in successfully.",
     adminUpdated: "Appointment updated.",
+    signInError: "Could not sign in. Check the email and password.",
+    systemError: "The action could not be completed. Please try again.",
     blockCreated: "Time blocked successfully.",
     blockDaysTitle: "Block days and times",
     blockDaysCopy: "Block days off, holidays, vacations, or time ranges when appointments are unavailable.",
@@ -378,12 +381,11 @@ export const translations = {
     cancelled: "Cancelled",
     completed: "Completed",
     emptyAdmin: "No requests yet.",
-    loading: "Connecting to Supabase...",
-    remoteReady: "Connected to Supabase.",
-    localMode:
-      "Local mode active. Check Supabase variables or run the pending SQL.",
+    loading: "Connecting...",
+    remoteReady: "System connected.",
+    localMode: "Could not connect to the booking system.",
     remoteRequestSuccess:
-      "Request sent to Supabase. The appointment is pending approval.",
+      "Request sent. The appointment is pending approval.",
     emailSkipped:
       "The appointment was saved, but email could not be sent or is not configured yet.",
     schedule: "Mon to Fri, 9:00 to 19:00. Saturdays configurable.",
@@ -486,8 +488,10 @@ export const translations = {
     loggedInAs: "Вход выполнен как",
     adminLoginRequired:
       "Для защиты данных пациентов панель требует входа.",
-    adminLoaded: "Панель подключена к Supabase.",
+    adminLoaded: "Вход выполнен.",
     adminUpdated: "Запись обновлена.",
+    signInError: "Не удалось войти. Проверьте email и пароль.",
+    systemError: "Не удалось выполнить действие. Попробуйте еще раз.",
     blockCreated: "Время заблокировано.",
     blockDaysTitle: "Заблокировать дни и время",
     blockDaysCopy: "Блокируйте выходные, праздники, отпуск или часы, когда прием недоступен.",
@@ -513,12 +517,11 @@ export const translations = {
     cancelled: "Отменено",
     completed: "Завершено",
     emptyAdmin: "Пока нет запросов.",
-    loading: "Подключение к Supabase...",
-    remoteReady: "Подключено к Supabase.",
-    localMode:
-      "Активен локальный режим. Проверьте переменные Supabase или выполните SQL.",
+    loading: "Подключение...",
+    remoteReady: "Система подключена.",
+    localMode: "Не удалось подключиться к системе записи.",
     remoteRequestSuccess:
-      "Запрос отправлен в Supabase. Запись ожидает подтверждения.",
+      "Запрос отправлен. Запись ожидает подтверждения.",
     emailSkipped:
       "Запись сохранена, но email не был отправлен или еще не настроен.",
     schedule: "Пн-Пт, 9:00-19:00. Суббота настраивается.",
