@@ -36,6 +36,57 @@ Future account option:
 - Do not block first booking behind registration.
 - Add "returning patient" features only if they clearly help: booking history, faster checkout, reminders, cancellations.
 
+## Future Registration
+
+Mandatory patient registration should be left for a later phase.
+
+Possible future options:
+
+- Google login.
+- Email and password login.
+- Magic link by email.
+- Social login only for returning patients.
+
+Recommended future behavior:
+
+- Allow first booking without account.
+- Offer account creation after the first request is submitted.
+- Let registered patients reuse their saved name, email, phone, and language.
+- Let registered patients view their pending and confirmed appointments.
+
+Do not make registration mandatory until there is a clear operational reason, such as cancellations, recurring patients, payment history, or loyalty workflows.
+
+## Multi-Appointment Requests
+
+Some patients may already know all their preferred appointments for the month.
+
+This should be supported in a future phase as a "multiple appointment request" flow.
+
+Recommended behavior:
+
+1. Patient chooses one service.
+2. Patient selects multiple day/time combinations.
+3. App shows a summary list before submission.
+4. Patient enters identity/contact details once.
+5. App creates one `pending_approval` appointment per selected slot.
+6. Therapist can confirm or decline each appointment individually.
+
+Important details:
+
+- Each selected slot must still be checked for conflicts before saving.
+- If one slot becomes unavailable, the app should save the available ones and explain which failed, or ask the patient to review before submitting.
+- Emails should summarize all requested slots instead of sending one separate email per slot.
+- Admin panel should group appointments created together when useful.
+
+Recommended database direction:
+
+- Add an optional `appointment_requests` table later.
+- Each batch request gets one `appointment_requests.id`.
+- Each appointment can reference `request_id`.
+- This allows the therapist to understand that several appointments came from the same patient flow.
+
+For the MVP, keep single appointment requests. Redesign the UI so it can naturally grow into multi-select later.
+
 ## Visual Direction
 
 Reference: Turnify's clean cards, centered layouts, simple admin navigation, horizontal date picker, and clear booking summary.
@@ -124,6 +175,8 @@ Recommended database direction:
 6. Add agenda view for selected day.
 7. Add block days/ranges management.
 8. Add service editing in admin.
+9. Add optional multi-appointment request flow.
+10. Add optional patient accounts/login.
 
 ## Open Questions
 
