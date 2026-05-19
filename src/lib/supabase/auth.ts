@@ -45,11 +45,18 @@ export async function signInAdmin(email: string, password: string) {
 
   if (error) {
     const normalizedMessage = error.message.toLowerCase();
-    if (normalizedMessage.includes("email not confirmed")) {
+    const errorCode =
+      "code" in error && typeof error.code === "string" ? error.code : "";
+
+    if (
+      errorCode === "email_not_confirmed" ||
+      normalizedMessage.includes("email not confirmed")
+    ) {
       throw new AdminAuthError("account_not_confirmed");
     }
 
     if (
+      errorCode === "invalid_credentials" ||
       normalizedMessage.includes("invalid login credentials") ||
       normalizedMessage.includes("invalid credentials")
     ) {
