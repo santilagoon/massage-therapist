@@ -1312,10 +1312,10 @@ function AdminTopNav({
 }) {
   const items: Array<[AdminView, string]> = [
     ["panel", t.adminPanel],
-    ["services", t.adminServices],
     ["agenda", t.adminAgenda],
     ["requests", t.adminRequests],
     ["blocks", t.adminBlocks],
+    ["services", t.adminServices],
     ["team", t.adminTeam],
     ["clients", t.adminClients],
     ["income", t.adminIncome],
@@ -1323,14 +1323,14 @@ function AdminTopNav({
   ];
 
   return (
-    <nav className="-mx-2 flex max-w-[42rem] flex-1 items-center gap-1 overflow-x-auto rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1">
+    <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1 lg:justify-center">
       {items.map(([view, label]) => (
         <button
           key={view}
           type="button"
           onClick={() => onViewChange(view)}
           className={[
-            "h-9 shrink-0 cursor-pointer rounded-full px-3 text-sm font-semibold transition",
+            "h-9 shrink-0 cursor-pointer rounded-full px-2.5 text-xs font-semibold transition xl:px-3 xl:text-sm",
             adminView === view
               ? "bg-[#111111] text-white"
               : "text-[#737373] hover:bg-white hover:text-[#111111]",
@@ -1489,7 +1489,7 @@ function AdminRequests({
         value={requestSearch}
         onChange={(event) => onSearchChange(event.target.value)}
         placeholder={t.requestSearchPlaceholder}
-        className={`${inputClass} max-w-xl`}
+        className={`${inputClass} max-w-sm`}
       />
 
       <div className="flex flex-wrap gap-2">
@@ -1719,7 +1719,8 @@ function AdminAgenda({
 }) {
   return (
     <section className="grid gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-4 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="grid gap-4 text-center sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+        <div aria-hidden="true" className="hidden sm:block" />
         <div>
           <h2 className="text-2xl font-semibold text-[#111111]">{t.adminAgenda}</h2>
           <p className="mt-1 text-sm text-[#737373]">
@@ -1737,7 +1738,7 @@ function AdminAgenda({
         </Field>
       </div>
 
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+      <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
         {dateOptions.map((option) => {
           const isSelected = option.value === selectedDate;
 
@@ -1846,7 +1847,7 @@ function AdminBlocks({
         <p className="mt-2 text-sm leading-6 text-[#737373]">{t.blockDaysCopy}</p>
       </div>
 
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+      <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
         {dateOptions.map((option) => {
           const isSelected = option.value === selectedDate;
 
@@ -2342,7 +2343,7 @@ function serviceCardClass(active: boolean) {
 
 function datePillClass(active: boolean) {
   return [
-    "flex min-w-[4.75rem] cursor-pointer flex-col items-center rounded-2xl border px-4 py-3 transition",
+    "flex h-24 min-w-[4.75rem] cursor-pointer flex-col items-center justify-center rounded-2xl border px-4 py-3 transition",
     "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
     active
       ? "border-[#111111] bg-[#111111] text-white"
