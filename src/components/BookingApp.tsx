@@ -87,6 +87,13 @@ export function BookingApp() {
   const [formErrors, setFormErrors] = useState<BookingFormErrors>({});
   const [notice, setNotice] = useState("");
   const [showAdminAccess, setShowAdminAccess] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
+  const [isSendingContact, setIsSendingContact] = useState(false);
+  const [contactNotice, setContactNotice] = useState("");
 
   const t = translations[locale];
   const selectedService = findServiceInList(serviceId, availableServices);
@@ -389,6 +396,37 @@ export function BookingApp() {
     );
   }
 
+  async function submitContact(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isSendingContact) {
+      return;
+    }
+
+    setIsSendingContact(true);
+    setContactNotice("");
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(contactForm),
+      });
+
+      if (!response.ok) {
+        throw new Error("Contact email could not be sent.");
+      }
+
+      setContactForm({ name: "", email: "", message: "" });
+      setContactNotice(t.contactSuccess);
+    } catch {
+      setContactNotice(t.contactError);
+    } finally {
+      setIsSendingContact(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-white text-[#111111]">
       <section className="mx-auto flex min-h-screen w-full flex-col">
@@ -447,16 +485,17 @@ export function BookingApp() {
                 {t.subtitle}
               </p>
             </div>
-            <div className="mx-auto grid w-full max-w-xl gap-3 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-4 text-left sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#737373]">
-                  {t.timezone}
-                </p>
-              </div>
-            </div>
+            <a
+              href="#booking"
+              className="mx-auto inline-flex h-12 items-center justify-center rounded-full bg-[#111111] px-8 text-sm font-semibold text-white transition hover:bg-[#2b2b2b]"
+            >
+              {t.bookTab}
+            </a>
           </section>
 
-          <section className="mx-auto grid w-full max-w-3xl gap-6">
+          <HowItWorksSection t={t} />
+
+          <section id="booking" className="mx-auto grid w-full max-w-3xl gap-6 scroll-mt-24">
 
             {notice || isLoadingRemote ? (
               <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
@@ -563,6 +602,18 @@ export function BookingApp() {
                       );
                     })}
                   </div>
+                  <Field label={t.openCalendar}>
+                    <input
+                      type="date"
+                      value={date}
+                      min={getTodayDateValue()}
+                      onChange={(event) => {
+                        setDate(event.target.value);
+                        setSlot("");
+                      }}
+                      className={inputClass}
+                    />
+                  </Field>
                 </div>
 
                 <div className="grid gap-3">
@@ -734,7 +785,14 @@ export function BookingApp() {
             )}
           </section>
 
-          <BookingInfoPanel t={t} />
+          <AboutMariaSection
+            contactForm={contactForm}
+            contactNotice={contactNotice}
+            isSendingContact={isSendingContact}
+            setContactForm={setContactForm}
+            t={t}
+            onSubmit={submitContact}
+          />
         </div>
       </section>
     </main>
@@ -934,13 +992,10 @@ function AdminPanel({
   );
 }
 
-function BookingInfoPanel({ t }: { t: Record<string, string> }) {
+function HowItWorksSection({ t }: { t: Record<string, string> }) {
   return (
-    <section id="about" className="mx-auto w-full max-w-3xl border-t border-[#e5e5e5] pt-8">
+    <section className="mx-auto w-full max-w-3xl border-t border-[#e5e5e5] pt-8">
       <div className="text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#737373]">
-          {t.navAbout}
-        </p>
         <h2 className="mt-3 text-2xl font-semibold text-[#111111]">
           {t.howItWorksTitle}
         </h2>
@@ -958,6 +1013,104 @@ function BookingInfoPanel({ t }: { t: Record<string, string> }) {
           </li>
         ))}
       </ol>
+    </section>
+  );
+}
+
+function AboutMariaSection({
+  contactForm,
+  contactNotice,
+  isSendingContact,
+  setContactForm,
+  t,
+  onSubmit,
+}: {
+  contactForm: { name: string; email: string; message: string };
+  contactNotice: string;
+  isSendingContact: boolean;
+  setContactForm: React.Dispatch<
+    React.SetStateAction<{ name: string; email: string; message: string }>
+  >;
+  t: Record<string, string>;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+}) {
+  return (
+    <section id="about" className="mx-auto grid w-full max-w-3xl gap-6 scroll-mt-24 border-t border-[#e5e5e5] pt-8">
+      <div className="text-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#737373]">
+          {t.navAbout}
+        </p>
+        <h2 className="mt-3 text-3xl font-semibold text-[#111111]">
+          {t.professionalName}
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#525252]">
+          {t.subtitle}
+        </p>
+      </div>
+
+      <form
+        onSubmit={(event) => void onSubmit(event)}
+        className="grid gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-4 shadow-sm sm:p-6"
+      >
+        <div>
+          <h3 className="text-lg font-semibold text-[#111111]">{t.contactTitle}</h3>
+          <p className="mt-2 text-sm leading-6 text-[#525252]">{t.contactCopy}</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t.contactName}>
+            <input
+              required
+              value={contactForm.name}
+              onChange={(event) =>
+                setContactForm((current) => ({ ...current, name: event.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t.email}>
+            <input
+              required
+              type="email"
+              value={contactForm.email}
+              onChange={(event) =>
+                setContactForm((current) => ({ ...current, email: event.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+        </div>
+
+        <Field label={t.contactMessage}>
+          <textarea
+            required
+            minLength={3}
+            maxLength={1200}
+            value={contactForm.message}
+            onChange={(event) =>
+              setContactForm((current) => ({
+                ...current,
+                message: event.target.value.slice(0, 1200),
+              }))
+            }
+            className={`${inputClass} min-h-32 resize-none`}
+          />
+        </Field>
+
+        <button
+          type="submit"
+          disabled={isSendingContact}
+          className="h-12 rounded-xl bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
+        >
+          {isSendingContact ? t.loading : t.contactSend}
+        </button>
+
+        {contactNotice ? (
+          <p className="rounded-xl border border-[#d4d4d4] bg-[#fafafa] p-3 text-sm font-medium text-[#111111]">
+            {contactNotice}
+          </p>
+        ) : null}
+      </form>
     </section>
   );
 }
@@ -1300,6 +1453,12 @@ function getDateOptions(days: number) {
       value: date.toISOString().slice(0, 10),
     };
   });
+}
+
+function getTodayDateValue() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString().slice(0, 10);
 }
 
 function formatWeekday(date: Date, locale: Locale) {
