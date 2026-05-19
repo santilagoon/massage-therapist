@@ -472,10 +472,10 @@ export function BookingApp() {
           </div>
         </header>
 
-        <div className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-4 py-8 sm:px-6 lg:py-10">
+        <div className="grid w-full flex-1 gap-8 py-8 lg:py-10">
           <section
             id="home"
-            className="relative isolate overflow-hidden rounded-[2rem] bg-[#111111] px-5 py-20 text-center text-white sm:px-8 sm:py-28"
+            className="relative isolate -mx-0 overflow-hidden bg-[#111111] px-5 py-20 text-center text-white sm:px-8 sm:py-32"
           >
             <div
               aria-hidden="true"
@@ -504,9 +504,10 @@ export function BookingApp() {
             </div>
           </section>
 
-          <HowItWorksSection t={t} />
+          <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 sm:px-6">
+            <HowItWorksSection t={t} />
 
-          <section id="booking" className="mx-auto grid w-full max-w-3xl gap-6 scroll-mt-24">
+            <section id="booking" className="mx-auto grid w-full max-w-3xl gap-6 scroll-mt-24">
 
             {notice || isLoadingRemote ? (
               <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
@@ -796,14 +797,15 @@ export function BookingApp() {
             )}
           </section>
 
-          <AboutMariaSection
-            contactForm={contactForm}
-            contactNotice={contactNotice}
-            isSendingContact={isSendingContact}
-            setContactForm={setContactForm}
-            t={t}
-            onSubmit={submitContact}
-          />
+            <AboutMariaSection
+              contactForm={contactForm}
+              contactNotice={contactNotice}
+              isSendingContact={isSendingContact}
+              setContactForm={setContactForm}
+              t={t}
+              onSubmit={submitContact}
+            />
+          </div>
         </div>
       </section>
     </main>
