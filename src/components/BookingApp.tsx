@@ -64,10 +64,10 @@ const phoneCountries = [
   { code: "+7", label: "Rusia", minLength: 10, maxLength: 10 },
 ];
 
-export function BookingApp() {
+export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
+  const isAdminPage = mode === "admin";
   const [locale, setLocale] = useState<Locale>("es");
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("ARS");
-  const [activeTab, setActiveTab] = useState<"book" | "admin">("book");
   const [availableServices, setAvailableServices] = useState(fallbackServices);
   const [serviceId, setServiceId] = useState(fallbackServices[0].id);
   const [date, setDate] = useState(getInitialDate);
@@ -103,7 +103,6 @@ export function BookingApp() {
   });
   const [formErrors, setFormErrors] = useState<BookingFormErrors>({});
   const [notice, setNotice] = useState("");
-  const [showAdminAccess, setShowAdminAccess] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -236,8 +235,7 @@ export function BookingApp() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("admin") === "1") {
-      setShowAdminAccess(true);
-      setActiveTab("admin");
+      window.location.href = "/admin";
     }
   }, []);
 
@@ -412,9 +410,7 @@ export function BookingApp() {
       return;
     }
 
-    setShowAdminAccess(true);
-    setActiveTab("admin");
-    document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+    window.location.href = "/admin";
   }
 
   async function handleCreateBlock(input: {
@@ -447,10 +443,10 @@ export function BookingApp() {
   }
 
   useEffect(() => {
-    if (activeTab === "admin" && adminUser && remoteMode && appointments.length === 0) {
+    if (isAdminPage && adminUser && remoteMode && appointments.length === 0) {
       void loadAdminData();
     }
-  }, [activeTab, adminUser, appointments.length, remoteMode]);
+  }, [adminUser, appointments.length, isAdminPage, remoteMode]);
 
   async function updateStatus(id: string, status: AppointmentStatus) {
     if (remoteMode && adminUser) {
@@ -517,15 +513,86 @@ export function BookingApp() {
     }
   }
 
+  if (isAdminPage) {
+    return (
+      <main className="min-h-screen bg-white text-[#111111]">
+        <section className="mx-auto flex min-h-screen w-full flex-col">
+          <header className="sticky top-0 z-10 border-b border-[#e5e5e5] bg-white/95 backdrop-blur">
+            <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+              <a href="/" className="text-sm font-semibold tracking-[0.12em] text-[#111111]">
+                MM
+              </a>
+              <div className="rounded-full border border-[#e5e5e5] bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#404040]">
+                {t.adminAgenda}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={openAdminAccess}
+                  title={adminUser ? t.logout : t.loginAdmin}
+                  aria-label={adminUser ? t.logout : t.loginAdmin}
+                  className="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
+                >
+                  <UserIcon />
+                  <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
+                    {adminUser ? t.logout : t.loginAdmin}
+                  </span>
+                </button>
+                <label className="sr-only" htmlFor="admin-language">
+                  {t.language}
+                </label>
+                <select
+                  id="admin-language"
+                  value={locale}
+                  onChange={(event) => setLocale(event.target.value as Locale)}
+                  className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
+                >
+                  {locales.map((item) => (
+                    <option key={item} value={item}>
+                      {item.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </header>
+
+          <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:py-10">
+            {notice || isLoadingRemote ? (
+              <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
+                {isLoadingRemote ? t.loading : notice}
+              </p>
+            ) : null}
+            <AdminPanel
+              appointments={appointments}
+              availabilityBlocks={availabilityBlocks}
+              services={availableServices}
+              adminUser={adminUser}
+              isLoading={isLoadingAdmin || isUpdatingStatus}
+              locale={locale}
+              t={t}
+              onLogin={handleAdminLogin}
+              onLogout={handleAdminLogout}
+              onRefresh={loadAdminData}
+              onCreateBlock={handleCreateBlock}
+              onStatusChange={updateStatus}
+            />
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-white text-[#111111]">
       <section className="mx-auto flex min-h-screen w-full flex-col">
         <header className="sticky top-0 z-10 border-b border-[#e5e5e5] bg-white/95 backdrop-blur">
           <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <a href="#home" className="text-sm font-semibold tracking-[0.12em] text-[#111111]">
+            <a href={isAdminPage ? "/" : "#home"} className="text-sm font-semibold tracking-[0.12em] text-[#111111]">
               MM
             </a>
 
+            {!isAdminPage ? (
             <nav className="hidden items-center gap-1 rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1 lg:absolute lg:left-1/2 lg:flex lg:-translate-x-1/2">
               {[
                 ["#home", t.navHome],
@@ -542,6 +609,11 @@ export function BookingApp() {
                 </a>
               ))}
             </nav>
+            ) : (
+              <div className="hidden rounded-full border border-[#e5e5e5] bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#404040] sm:block">
+                {t.adminAgenda}
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -556,6 +628,8 @@ export function BookingApp() {
                   {adminUser ? t.logout : t.loginAdmin}
                 </span>
               </button>
+              {!isAdminPage ? (
+              <>
               <label className="sr-only" htmlFor="currency">
                 {t.currency}
               </label>
@@ -568,6 +642,8 @@ export function BookingApp() {
                 <option value="ARS">{t.arsCurrency}</option>
                 <option value="USD">{t.usdCurrency}</option>
               </select>
+              </>
+              ) : null}
               <label className="sr-only" htmlFor="language">
                 {t.language}
               </label>
@@ -631,26 +707,6 @@ export function BookingApp() {
               </p>
             ) : null}
 
-            <div className="mx-auto flex w-fit gap-2 rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab("book")}
-                className={tabClass(activeTab === "book")}
-              >
-                {t.bookTab}
-              </button>
-              {adminUser || showAdminAccess ? (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("admin")}
-                  className={tabClass(activeTab === "admin")}
-                >
-                  {t.adminTab}
-                </button>
-              ) : null}
-            </div>
-
-            {activeTab === "book" ? (
               <form
                 onSubmit={submitRequest}
                 noValidate
@@ -941,22 +997,6 @@ export function BookingApp() {
                   </p>
                 ) : null}
               </form>
-            ) : (
-              <AdminPanel
-                appointments={appointments}
-                availabilityBlocks={availabilityBlocks}
-                services={availableServices}
-                adminUser={adminUser}
-                isLoading={isLoadingAdmin || isUpdatingStatus}
-                locale={locale}
-                t={t}
-                onLogin={handleAdminLogin}
-                onLogout={handleAdminLogout}
-                onRefresh={loadAdminData}
-                onCreateBlock={handleCreateBlock}
-                onStatusChange={updateStatus}
-              />
-            )}
           </section>
 
             <AboutMariaSection
