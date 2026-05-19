@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Turnos de masaje",
-  description: "Reserva online de masajes terapeuticos y deportivos.",
+  title: "Maria Mikhailova | Masajista Terapeutica",
+  description: "Reserva online de masajes terapeuticos y deportivos con Maria Mikhailova.",
 };
 
 export default function RootLayout({

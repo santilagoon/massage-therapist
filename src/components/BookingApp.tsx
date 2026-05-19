@@ -382,56 +382,77 @@ export function BookingApp() {
 
   return (
     <main className="min-h-screen bg-white text-[#111111]">
-      <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-[#e5e5e5] py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#737373]">
-              {t.eyebrow}
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold leading-tight text-[#111111] sm:text-4xl">
-              {t.title}
-            </h1>
-          </div>
+      <section className="mx-auto flex min-h-screen w-full flex-col">
+        <header className="sticky top-0 z-10 border-b border-[#e5e5e5] bg-white/95 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+            <a href="#home" className="text-sm font-semibold tracking-[0.12em] text-[#111111]">
+              MM
+            </a>
 
-          <div className="flex items-center gap-2">
-            <label className="sr-only" htmlFor="language">
-              {t.language}
-            </label>
-            <select
-              id="language"
-              value={locale}
-              onChange={(event) => setLocale(event.target.value as Locale)}
-              className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
-            >
-              {locales.map((item) => (
-                <option key={item} value={item}>
-                  {item.toUpperCase()}
-                </option>
+            <nav className="hidden items-center gap-1 rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1 sm:flex">
+              {[
+                ["#home", t.navHome],
+                ["#services", t.navServices],
+                ["#about", t.navAbout],
+              ].map(([href, label]) => (
+                <a
+                  key={href}
+                  href={href}
+                  className="rounded-full px-4 py-2 text-sm font-medium text-[#525252] transition hover:bg-white hover:text-[#111111]"
+                >
+                  {label}
+                </a>
               ))}
-            </select>
+            </nav>
+
+            <div className="flex items-center gap-2">
+              <label className="sr-only" htmlFor="language">
+                {t.language}
+              </label>
+              <select
+                id="language"
+                value={locale}
+                onChange={(event) => setLocale(event.target.value as Locale)}
+                className="h-10 rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
+              >
+                {locales.map((item) => (
+                  <option key={item} value={item}>
+                    {item.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </header>
 
-        <div className="grid flex-1 gap-6 py-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.65fr)]">
-          <section className="flex flex-col gap-6">
-            <div className="grid gap-4 rounded-2xl bg-[#111111] p-5 text-white sm:grid-cols-[1fr_180px] sm:p-6">
+        <div className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-4 py-8 sm:px-6 lg:py-10">
+          <section id="home" className="grid gap-5 text-center">
+            <p className="mx-auto w-fit rounded-full border border-[#e5e5e5] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#737373]">
+              {t.professionalRole}
+            </p>
+            <div>
+              <h1 className="text-4xl font-semibold tracking-normal text-[#111111] sm:text-6xl">
+                {t.professionalName}
+              </h1>
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[#525252] sm:text-lg">
+                {t.subtitle}
+              </p>
+            </div>
+            <div className="mx-auto grid w-full max-w-xl gap-3 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-4 text-left sm:grid-cols-2">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#d4d4d4]">
-                  {t.appName}
-                </p>
-                <p className="mt-3 max-w-2xl text-base leading-7 text-[#f5f5f5] sm:text-lg sm:leading-8">
-                  {t.subtitle}
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#737373]">
+                  {t.schedule}
                 </p>
               </div>
-              <div className="flex min-h-28 items-end rounded-2xl border border-white/15 bg-white/10 p-4 text-white sm:min-h-36">
-                <div>
-                  <p className="text-sm font-semibold">{t.schedule}</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.16em] opacity-85">
-                    {t.timezone}
-                  </p>
-                </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#737373]">
+                  {t.timezone}
+                </p>
               </div>
             </div>
+          </section>
+
+          <section className="mx-auto grid w-full max-w-3xl gap-6">
 
             {notice || isLoadingRemote ? (
               <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
@@ -439,7 +460,7 @@ export function BookingApp() {
               </p>
             ) : null}
 
-            <div className="flex w-full gap-2 border-b border-[#e5e5e5]">
+            <div className="mx-auto flex w-fit gap-2 rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1">
               <button
                 type="button"
                 onClick={() => setActiveTab("book")}
@@ -463,7 +484,9 @@ export function BookingApp() {
                 className="grid gap-6 rounded-2xl border border-[#e5e5e5] bg-white p-4 shadow-sm sm:p-6"
               >
                 <div className="grid gap-3">
-                  <StepHeading number={1} label={t.chooseService} />
+                  <div id="services">
+                    <StepHeading number={1} label={t.chooseService} />
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {availableServices.map((service) => {
                       const isSelected = service.id === serviceId;
@@ -705,26 +728,7 @@ export function BookingApp() {
             )}
           </section>
 
-          {activeTab === "book" ? (
-            <BookingInfoPanel t={t} />
-          ) : (
-            <aside className="hidden rounded-lg border border-[#d9d0c3] bg-white p-5 lg:block">
-              <h2 className="text-lg font-semibold">{t.adminTitle}</h2>
-              <div className="mt-4 space-y-3">
-                {appointments.slice(0, 5).map((appointment) => (
-                  <AppointmentRow
-                    key={appointment.id}
-                    appointment={appointment}
-                    services={availableServices}
-                    locale={locale}
-                    t={t}
-                    compact
-                    onStatusChange={updateStatus}
-                  />
-                ))}
-              </div>
-            </aside>
-          )}
+          <BookingInfoPanel t={t} />
         </div>
       </section>
     </main>
@@ -926,26 +930,35 @@ function AdminPanel({
 
 function BookingInfoPanel({ t }: { t: Record<string, string> }) {
   return (
-    <aside className="rounded-lg border border-[#d9d0c3] bg-white p-4 sm:p-5">
-      <h2 className="text-lg font-semibold">{t.howItWorksTitle}</h2>
-      <ol className="mt-4 grid gap-3">
+    <section id="about" className="mx-auto w-full max-w-3xl border-t border-[#e5e5e5] pt-8">
+      <div className="text-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#737373]">
+          {t.navAbout}
+        </p>
+        <h2 className="mt-3 text-2xl font-semibold text-[#111111]">
+          {t.howItWorksTitle}
+        </h2>
+      </div>
+      <ol className="mt-6 grid gap-3 sm:grid-cols-3">
         {[t.stepChoose, t.stepPending, t.stepEmail].map((step, index) => (
           <li
             key={step}
-            className="grid grid-cols-[2rem_1fr] items-start gap-3 rounded-md bg-[#f6f3ee] p-3 text-sm leading-6 text-[#4a443d]"
+            className="rounded-2xl border border-[#e5e5e5] bg-white p-4 text-center text-sm leading-6 text-[#525252]"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#36594a] text-sm font-semibold text-white">
+            <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-[#111111] text-sm font-semibold text-white">
               {index + 1}
             </span>
-            <span>{step}</span>
+            <span className="mt-3 block">{step}</span>
           </li>
         ))}
       </ol>
-      <div className="mt-4 rounded-md border border-[#d9d0c3] p-3">
-        <p className="text-sm font-semibold text-[#24211d]">{t.privacyTitle}</p>
-        <p className="mt-2 text-sm leading-6 text-[#5b554e]">{t.privacyCopy}</p>
+      <div className="mt-4 rounded-2xl bg-[#fafafa] p-4 text-center">
+        <p className="text-sm font-semibold text-[#111111]">{t.privacyTitle}</p>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#525252]">
+          {t.privacyCopy}
+        </p>
       </div>
-    </aside>
+    </section>
   );
 }
 
@@ -1189,9 +1202,9 @@ const inputClass =
 
 function tabClass(active: boolean) {
   return [
-    "h-11 px-4 text-sm font-semibold transition",
+    "h-10 rounded-full px-4 text-sm font-semibold transition",
     active
-      ? "border-b-2 border-[#111111] text-[#111111]"
+      ? "bg-[#111111] text-white"
       : "text-[#737373] hover:text-[#111111]",
   ].join(" ");
 }
