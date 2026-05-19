@@ -473,24 +473,35 @@ export function BookingApp() {
         </header>
 
         <div className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-4 py-8 sm:px-6 lg:py-10">
-          <section id="home" className="grid gap-5 text-center">
-            <p className="mx-auto w-fit rounded-full border border-[#e5e5e5] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#737373]">
-              {t.professionalRole}
-            </p>
-            <div>
-              <h1 className="text-4xl font-semibold tracking-normal text-[#111111] sm:text-6xl">
+          <section
+            id="home"
+            className="relative isolate overflow-hidden rounded-[2rem] bg-[#111111] px-5 py-20 text-center text-white sm:px-8 sm:py-28"
+          >
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 -z-20 bg-[url('/images/maria-session.jpg')] bg-cover bg-[position:42%_center] sm:bg-center"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(0,0,0,0.72),rgba(0,0,0,0.38)_48%,rgba(0,0,0,0.62))]"
+            />
+            <div className="mx-auto max-w-3xl">
+              <p className="mx-auto w-fit rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                {t.professionalRole}
+              </p>
+              <h1 className="mt-6 text-4xl font-semibold tracking-normal text-white sm:text-6xl">
                 {t.professionalName}
               </h1>
-              <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[#525252] sm:text-lg">
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-white/85 sm:text-lg">
                 {t.subtitle}
               </p>
+              <a
+                href="#booking"
+                className="mx-auto mt-8 inline-flex h-12 items-center justify-center rounded-full bg-white px-8 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5]"
+              >
+                {t.bookTab}
+              </a>
             </div>
-            <a
-              href="#booking"
-              className="mx-auto inline-flex h-12 items-center justify-center rounded-full bg-[#111111] px-8 text-sm font-semibold text-white transition hover:bg-[#2b2b2b]"
-            >
-              {t.bookTab}
-            </a>
           </section>
 
           <HowItWorksSection t={t} />
