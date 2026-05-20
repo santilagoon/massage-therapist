@@ -1328,23 +1328,41 @@ function AdminTopNav({
   ];
 
   return (
-    <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1 lg:justify-center">
-      {items.map(([view, label]) => (
-        <button
-          key={view}
-          type="button"
-          onClick={() => onViewChange(view)}
-          className={[
-            "h-9 shrink-0 cursor-pointer rounded-full px-2.5 text-xs font-semibold transition xl:px-3 xl:text-sm",
-            adminView === view
-              ? "bg-[#111111] text-white"
-              : "text-[#737373] hover:bg-white hover:text-[#111111]",
-          ].join(" ")}
-        >
-          {label}
-        </button>
-      ))}
-    </nav>
+    <div className="min-w-0 flex-1">
+      <label className="sr-only" htmlFor="admin-section">
+        {t.adminPanel}
+      </label>
+      <select
+        id="admin-section"
+        value={adminView}
+        onChange={(event) => onViewChange(event.target.value as AdminView)}
+        className="h-10 w-full cursor-pointer rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-semibold text-[#111111] outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15 md:hidden"
+      >
+        {items.map(([view, label]) => (
+          <option key={view} value={view}>
+            {label}
+          </option>
+        ))}
+      </select>
+
+      <nav className="hidden min-w-0 items-center gap-1 overflow-x-auto rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1 md:flex lg:justify-center">
+        {items.map(([view, label]) => (
+          <button
+            key={view}
+            type="button"
+            onClick={() => onViewChange(view)}
+            className={[
+              "h-9 shrink-0 cursor-pointer rounded-full px-2.5 text-xs font-semibold transition xl:px-3 xl:text-sm",
+              adminView === view
+                ? "bg-[#111111] text-white"
+                : "text-[#737373] hover:bg-white hover:text-[#111111]",
+            ].join(" ")}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+    </div>
   );
 }
 
