@@ -104,7 +104,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [remoteMode, setRemoteMode] = useState(isSupabaseConfigured);
   const [form, setForm] = useState({
-    appointmentPlace: "zapiola" as AppointmentPlace,
+    appointmentPlace: "home" as AppointmentPlace,
     appointmentAddress: "",
     patientName: "",
     patientEmail: "",
@@ -792,6 +792,8 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                       <input
                         required
                         value={form.appointmentAddress}
+                        autoComplete="street-address"
+                        placeholder={t.addressPlaceholder}
                         onChange={(event) =>
                           updateFormField("appointmentAddress", event.target.value)
                         }
@@ -2224,11 +2226,20 @@ function AdminLogin({
   }
 
   return (
-    <form onSubmit={submitLogin} className="mx-auto mt-8 grid w-full max-w-[22rem] gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm">
-      <div className="mb-1 text-center">
-        <h1 className="text-lg font-semibold text-[#111111]">{t.login}</h1>
+    <form onSubmit={submitLogin} className="mx-auto mt-8 grid w-full max-w-[23rem] gap-5 rounded-xl border border-[#262626] bg-[#111111] p-5 text-white shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+      <div className="grid grid-cols-2 rounded-lg bg-white/10 p-1">
+        <span className="flex h-9 items-center justify-center rounded-md bg-white text-sm font-semibold text-[#111111]">
+          {t.login}
+        </span>
+        <span className="flex h-9 items-center justify-center rounded-md text-sm font-semibold text-white/45">
+          {t.register}
+        </span>
       </div>
-      <label className="grid gap-1.5 text-xs font-semibold text-[#413c36]">
+
+      <div className="text-center">
+        <h1 className="text-xl font-semibold text-white">{t.login}</h1>
+      </div>
+      <label className="grid gap-1 text-xs font-semibold text-white/70">
         <span>{t.email}</span>
         <input
           required
@@ -2244,7 +2255,7 @@ function AdminLogin({
         />
       </label>
 
-      <label className="grid gap-1.5 text-xs font-semibold text-[#413c36]">
+      <label className="grid gap-1 text-xs font-semibold text-white/70">
         <span>{t.password}</span>
         <input
           required
@@ -2263,7 +2274,7 @@ function AdminLogin({
       <button
         type="submit"
         disabled={isLoading}
-        className="mt-1 h-10 cursor-pointer rounded-xl bg-[#111111] px-4 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
+        className="h-11 cursor-pointer rounded-lg bg-white px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-white/60"
       >
         {isLoading ? t.loading : t.login}
       </button>
@@ -2387,7 +2398,7 @@ const compactInputClass =
   "h-11 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
 
 const adminLoginInputClass =
-  "h-9 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
+  "h-10 w-full border-0 border-b border-white/35 bg-transparent px-1 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white";
 
 function filterButtonClass(active: boolean) {
   return [
