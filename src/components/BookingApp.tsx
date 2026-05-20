@@ -971,21 +971,25 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                       />
                     </Field>
                     <Field label={t.phone} error={formErrors.patientPhone}>
-                      <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
+                      <div className="grid grid-cols-[8.5rem_1fr] gap-2">
                         <label className="sr-only" htmlFor="phone-country">
                           {t.phoneCountry}
                         </label>
                         <select
                           id="phone-country"
                           value={form.phoneCountryCode}
-                          onChange={(event) =>
+                          onChange={(event) => {
                             setForm((current) => ({
                               ...current,
                               phoneCountryCode: event.target.value,
                               patientPhone: "",
-                            }))
-                          }
-                          className={inputClass}
+                            }));
+                            setFormErrors((current) => ({
+                              ...current,
+                              patientPhone: undefined,
+                            }));
+                          }}
+                          className={`${compactInputClass} cursor-pointer`}
                         >
                           {phoneCountries.map((country) => (
                             <option key={country.code} value={country.code}>
@@ -998,6 +1002,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                         </label>
                         <input
                           id="phone-number"
+                          required
                           value={form.patientPhone}
                           inputMode="numeric"
                           pattern={`\\d{${selectedPhoneCountry.minLength},${selectedPhoneCountry.maxLength}}`}
@@ -1014,7 +1019,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                               ),
                             )
                           }
-                          className={inputClass}
+                          className={compactInputClass}
                         />
                       </div>
                     </Field>
@@ -2378,6 +2383,9 @@ function Field({
 const inputClass =
   "min-h-12 w-full rounded-xl border border-[#d4d4d4] bg-white px-3 py-2 text-base outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15 sm:text-sm";
 
+const compactInputClass =
+  "h-11 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
+
 const adminLoginInputClass =
   "h-9 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
 
@@ -2667,11 +2675,12 @@ function validateBookingForm({
     errors.patientEmail = t.emailError;
   }
 
-  if (
-    phone &&
-    (phone.length < phoneCountry.minLength ||
-      phone.length > phoneCountry.maxLength ||
-      !/^\d+$/.test(phone))
+  if (!phone) {
+    errors.patientPhone = t.phoneRequired;
+  } else if (
+    phone.length < phoneCountry.minLength ||
+    phone.length > phoneCountry.maxLength ||
+    !/^\d+$/.test(phone)
   ) {
     errors.patientPhone = `${t.phoneError} (${phoneCountry.minLength}-${phoneCountry.maxLength})`;
   }
