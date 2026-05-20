@@ -209,6 +209,14 @@ export const translations = {
     slotError: "Elegí un horario disponible.",
     formHasErrors: "Revisá los campos marcados antes de solicitar el turno.",
     request: "Solicitar pre-aprobacion",
+    preApprovalSent: "Solicitud enviada",
+    requestCode: "Código de solicitud",
+    preApprovalExplanation:
+      "Tu solicitud fue enviada correctamente y queda pendiente de aprobación profesional. Maria revisará los datos y confirmará si puede tomar el turno.",
+    emailSentTo: "Enviamos el detalle de la solicitud a {email}.",
+    spamReminder: "Si no ves el email, revisá Spam o Correo no deseado.",
+    newRequest: "Hacer otra solicitud",
+    close: "Entendido",
     pendingCopy:
       "La solicitud bloquea el horario y queda pendiente hasta que la masajista la confirme.",
     noSlots: "No hay horarios disponibles para esa fecha.",
@@ -384,6 +392,14 @@ export const translations = {
     slotError: "Choose an available time.",
     formHasErrors: "Review the highlighted fields before requesting the appointment.",
     request: "Request pre-approval",
+    preApprovalSent: "Request sent",
+    requestCode: "Request code",
+    preApprovalExplanation:
+      "Your request was sent successfully and is pending professional approval. Maria will review the details and confirm whether she can take the appointment.",
+    emailSentTo: "We sent the request details to {email}.",
+    spamReminder: "If you do not see the email, check Spam or Junk.",
+    newRequest: "Make another request",
+    close: "Got it",
     pendingCopy:
       "The request blocks the slot and remains pending until the therapist confirms it.",
     noSlots: "No available times for this date.",
@@ -560,6 +576,14 @@ export const translations = {
     slotError: "Выберите доступное время.",
     formHasErrors: "Проверьте отмеченные поля перед отправкой запроса.",
     request: "Запросить предварительное подтверждение",
+    preApprovalSent: "Запрос отправлен",
+    requestCode: "Код запроса",
+    preApprovalExplanation:
+      "Ваш запрос успешно отправлен и ожидает подтверждения специалиста. Мария проверит данные и подтвердит, сможет ли принять запись.",
+    emailSentTo: "Мы отправили детали запроса на {email}.",
+    spamReminder: "Если письма нет, проверьте папку Спам.",
+    newRequest: "Создать другой запрос",
+    close: "Понятно",
     pendingCopy:
       "Запрос блокирует время и остается ожидающим, пока специалист его не подтвердит.",
     noSlots: "На эту дату нет свободного времени.",

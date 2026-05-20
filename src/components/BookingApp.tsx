@@ -64,6 +64,13 @@ type BookingFormField =
   | "notes"
   | "slot";
 type BookingFormErrors = Partial<Record<BookingFormField, string>>;
+type SubmittedRequestDetails = {
+  address: string;
+  appointment: Appointment;
+  placeLabel: string;
+  priceLabel: string;
+  serviceTitle: string;
+};
 
 const phoneCountries = [
   { code: "+54", label: "Argentina", minLength: 10, maxLength: 11 },
@@ -120,6 +127,8 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   });
   const [formErrors, setFormErrors] = useState<BookingFormErrors>({});
   const [notice, setNotice] = useState("");
+  const [submittedRequest, setSubmittedRequest] =
+    useState<SubmittedRequestDetails | null>(null);
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -334,6 +343,13 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
           : createAppointment(appointmentInput);
 
       setAppointments((current) => [appointment, ...current]);
+      setSubmittedRequest({
+        address: appointmentAddress,
+        appointment,
+        placeLabel: getAppointmentPlaceLabel(form.appointmentPlace, t),
+        priceLabel: formatServicePrice(selectedService, locale, t, displayCurrency),
+        serviceTitle: selectedService.title[locale],
+      });
       setForm({
         patientName: "",
         patientEmail: "",
@@ -347,7 +363,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         notes: "",
       });
       setFormErrors({});
-      setNotice(remoteMode ? t.remoteRequestSuccess : t.success);
+      setNotice("");
       setSlot("");
 
       if (remoteMode) {
@@ -648,6 +664,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   }
 
   return (
+    <>
     <main className="min-h-screen bg-white text-[#111111]">
       <section className="mx-auto flex min-h-screen w-full flex-col">
         <header className="sticky top-0 z-10 border-b border-[#e5e5e5] bg-white/95 backdrop-blur">
@@ -1134,6 +1151,15 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         </div>
       </section>
     </main>
+    {submittedRequest ? (
+      <PreApprovalModal
+        details={submittedRequest}
+        locale={locale}
+        t={t}
+        onClose={() => setSubmittedRequest(null)}
+      />
+    ) : null}
+    </>
   );
 
   function updateFormField(field: keyof typeof form, value: string) {
@@ -1148,6 +1174,104 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       [errorField]: undefined,
     }));
   }
+}
+
+function PreApprovalModal({
+  details,
+  locale,
+  onClose,
+  t,
+}: {
+  details: SubmittedRequestDetails;
+  locale: Locale;
+  onClose: () => void;
+  t: Record<string, string>;
+}) {
+  const reservationCode = `PR-${details.appointment.id.slice(0, 6).toUpperCase()}`;
+
+  function closeAndReturnToBooking() {
+    onClose();
+    document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pre-approval-title"
+    >
+      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
+        <div className="bg-[#111111] px-5 py-7 text-center text-white sm:px-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+            {t.preApprovalSent}
+          </p>
+          <h2 id="pre-approval-title" className="mt-3 text-3xl font-semibold sm:text-4xl">
+            {reservationCode}
+          </h2>
+          <p className="mt-2 text-sm font-medium text-white/75">{t.requestCode}</p>
+        </div>
+
+        <div className="grid gap-5 px-5 py-6 sm:px-8">
+          <p className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-4 text-sm leading-6 text-[#404040]">
+            {t.preApprovalExplanation}
+          </p>
+
+          <dl className="grid gap-3 rounded-2xl border border-[#e5e5e5] p-4 text-sm">
+            <SummaryRow label={t.patient} value={details.appointment.patientName} />
+            <SummaryRow label={t.email} value={details.appointment.patientEmail} />
+            <SummaryRow label={t.phone} value={details.appointment.patientPhone} />
+            <SummaryRow label={t.appointmentPlace} value={details.placeLabel} />
+            {details.address ? (
+              <SummaryRow label={t.patientAddress} value={details.address} />
+            ) : null}
+            <SummaryRow label={t.service} value={details.serviceTitle} />
+            <SummaryRow
+              label={t.date}
+              value={formatSummaryDate(details.appointment.startsAt, locale)}
+            />
+            <SummaryRow
+              label={t.time}
+              value={formatTimeOnly(details.appointment.startsAt, locale)}
+            />
+            <SummaryRow
+              label={t.duration}
+              value={`${Math.round(
+                (new Date(details.appointment.endsAt).getTime() -
+                  new Date(details.appointment.startsAt).getTime()) /
+                  60000,
+              )} min`}
+            />
+            <div className="border-t border-[#e5e5e5] pt-3">
+              <SummaryRow label={t.total} value={details.priceLabel} strong />
+            </div>
+          </dl>
+
+          <div className="grid gap-2 rounded-2xl bg-[#f5f5f5] p-4 text-sm leading-6 text-[#404040]">
+            <p>{t.emailSentTo.replace("{email}", details.appointment.patientEmail)}</p>
+            <p>{t.spamReminder}</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={closeAndReturnToBooking}
+              className="h-12 rounded-full border border-[#111111] px-5 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5]"
+            >
+              {t.newRequest}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-12 rounded-full bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b]"
+            >
+              {t.close}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function StepHeading({ number, label }: { number: number; label: string }) {
