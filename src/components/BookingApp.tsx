@@ -399,6 +399,9 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     setAppointments([]);
     setAvailabilityBlocks([]);
     setNotice("");
+    if (isAdminPage) {
+      window.location.href = "/";
+    }
   }
 
   async function refreshAdminData() {
@@ -826,7 +829,12 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                                 {service.description[locale]}
                               </span>
                             </span>
-                            <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#111111]" />
+                            <span
+                              className={[
+                                "mt-1 h-3 w-3 shrink-0 rounded-full transition",
+                                isSelected ? "bg-[#111111]" : "bg-transparent",
+                              ].join(" ")}
+                            />
                           </span>
                           <span className="mt-4 flex flex-wrap items-center gap-2 text-sm">
                             <span className="rounded-full bg-[#f5f5f5] px-3 py-1 text-[#374151]">
@@ -2387,8 +2395,8 @@ function serviceCardClass(active: boolean) {
     "cursor-pointer rounded-2xl border p-4 text-left transition",
     "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
     active
-      ? "border-[#111111] bg-white shadow-sm"
-      : "border-[#e5e5e5] bg-[#fafafa] hover:border-[#a3a3a3]",
+      ? "border-[#111111] bg-white shadow-[0_10px_28px_rgba(17,17,17,0.16)] ring-1 ring-[#111111]/20"
+      : "border-[#e5e5e5] bg-[#fafafa] shadow-none hover:border-[#a3a3a3]",
   ].join(" ");
 }
 
