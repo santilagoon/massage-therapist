@@ -54,7 +54,10 @@ type AdminView =
 type DisplayCurrency = "ARS" | "USD";
 type AppointmentPlace = "home" | "zapiola" | "other_studio";
 type BookingFormField =
-  | "appointmentAddress"
+  | "appointmentStreet"
+  | "appointmentNumber"
+  | "appointmentApartment"
+  | "appointmentNeighborhood"
   | "patientName"
   | "patientEmail"
   | "patientPhone"
@@ -105,7 +108,10 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   const [remoteMode, setRemoteMode] = useState(isSupabaseConfigured);
   const [form, setForm] = useState({
     appointmentPlace: "home" as AppointmentPlace,
-    appointmentAddress: "",
+    appointmentStreet: "",
+    appointmentNumber: "",
+    appointmentApartment: "",
+    appointmentNeighborhood: "",
     patientName: "",
     patientEmail: "",
     phoneCountryCode: "+54",
@@ -272,6 +278,13 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     const normalizedPhone = form.patientPhone
       ? `${form.phoneCountryCode} ${form.patientPhone}`
       : "";
+    const appointmentAddress = formatHomeAddress({
+      apartment: form.appointmentApartment,
+      neighborhood: form.appointmentNeighborhood,
+      number: form.appointmentNumber,
+      street: form.appointmentStreet,
+      t,
+    });
     const validationErrors = validateBookingForm({
       name: normalizedName,
       email: normalizedEmail,
@@ -280,7 +293,8 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       selectedSlot,
       phoneCountry: selectedPhoneCountry,
       t,
-      appointmentAddress: form.appointmentAddress,
+      appointmentNumber: form.appointmentNumber,
+      appointmentStreet: form.appointmentStreet,
       appointmentPlace: form.appointmentPlace,
     });
 
@@ -295,7 +309,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     }
 
     const notesWithPlace = buildAppointmentNotes({
-      address: form.appointmentAddress,
+      address: appointmentAddress,
       notes: form.notes,
       placeLabel: getAppointmentPlaceLabel(form.appointmentPlace, t),
     });
@@ -324,7 +338,10 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         patientName: "",
         patientEmail: "",
         appointmentPlace: form.appointmentPlace,
-        appointmentAddress: "",
+        appointmentStreet: "",
+        appointmentNumber: "",
+        appointmentApartment: "",
+        appointmentNeighborhood: "",
         phoneCountryCode: form.phoneCountryCode,
         patientPhone: "",
         notes: "",
@@ -772,11 +789,17 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                             setForm((current) => ({
                               ...current,
                               appointmentPlace: place,
-                              appointmentAddress: place === "home" ? current.appointmentAddress : "",
+                              appointmentStreet: place === "home" ? current.appointmentStreet : "",
+                              appointmentNumber: place === "home" ? current.appointmentNumber : "",
+                              appointmentApartment: place === "home" ? current.appointmentApartment : "",
+                              appointmentNeighborhood: place === "home" ? current.appointmentNeighborhood : "",
                             }));
                             setFormErrors((current) => ({
                               ...current,
-                              appointmentAddress: undefined,
+                              appointmentStreet: undefined,
+                              appointmentNumber: undefined,
+                              appointmentApartment: undefined,
+                              appointmentNeighborhood: undefined,
                             }));
                           }}
                           aria-pressed={isSelected}
@@ -788,18 +811,59 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                     })}
                   </div>
                   {form.appointmentPlace === "home" ? (
-                    <Field label={t.patientAddress} error={formErrors.appointmentAddress}>
-                      <input
-                        required
-                        value={form.appointmentAddress}
-                        autoComplete="street-address"
-                        placeholder={t.addressPlaceholder}
-                        onChange={(event) =>
-                          updateFormField("appointmentAddress", event.target.value)
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
+                    <div className="grid gap-3 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-4">
+                      <p className="text-sm font-semibold text-[#413c36]">
+                        {t.patientAddress}
+                      </p>
+                      <Field label={t.addressStreet} error={formErrors.appointmentStreet}>
+                        <input
+                          required
+                          value={form.appointmentStreet}
+                          autoComplete="address-line1"
+                          placeholder={t.addressStreetPlaceholder}
+                          onChange={(event) =>
+                            updateFormField("appointmentStreet", sanitizeAddressText(event.target.value))
+                          }
+                          className={compactInputClass}
+                        />
+                      </Field>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label={t.addressNumber} error={formErrors.appointmentNumber}>
+                          <input
+                            required
+                            value={form.appointmentNumber}
+                            inputMode="numeric"
+                            maxLength={8}
+                            onChange={(event) =>
+                              updateFormField("appointmentNumber", onlyDigits(event.target.value).slice(0, 8))
+                            }
+                            className={compactInputClass}
+                          />
+                        </Field>
+                        <Field label={t.addressApartment}>
+                          <input
+                            value={form.appointmentApartment}
+                            autoComplete="address-line2"
+                            maxLength={20}
+                            onChange={(event) =>
+                              updateFormField("appointmentApartment", sanitizeAddressText(event.target.value).slice(0, 20))
+                            }
+                            className={compactInputClass}
+                          />
+                        </Field>
+                      </div>
+                      <Field label={t.addressNeighborhood}>
+                        <input
+                          value={form.appointmentNeighborhood}
+                          autoComplete="address-level3"
+                          maxLength={40}
+                          onChange={(event) =>
+                            updateFormField("appointmentNeighborhood", sanitizeAddressText(event.target.value).slice(0, 40))
+                          }
+                          className={compactInputClass}
+                        />
+                      </Field>
+                    </div>
                   ) : null}
                 </div>
 
@@ -2533,6 +2597,12 @@ function onlyDigits(value: string) {
   return value.replace(/\D/g, "");
 }
 
+function sanitizeAddressText(value: string) {
+  return value
+    .replace(/[^A-Za-zÀ-ÿА-Яа-яЁё0-9 .,'-]/g, "")
+    .replace(/\s{2,}/g, " ");
+}
+
 function getDateOptions(days: number) {
   return Array.from({ length: days }, (_, index) => {
     const date = new Date();
@@ -2644,9 +2714,38 @@ function buildAppointmentNotes({
   return parts.join("\n").slice(0, 600);
 }
 
+function formatHomeAddress({
+  apartment,
+  neighborhood,
+  number,
+  street,
+  t,
+}: {
+  apartment: string;
+  neighborhood: string;
+  number: string;
+  street: string;
+  t: Record<string, string>;
+}) {
+  const parts = [`${street.trim()} ${number.trim()}`.trim()];
+  const normalizedApartment = apartment.trim();
+  const normalizedNeighborhood = neighborhood.trim();
+
+  if (normalizedApartment) {
+    parts.push(`${t.addressApartment.split(" (")[0]}: ${normalizedApartment}`);
+  }
+
+  if (normalizedNeighborhood) {
+    parts.push(normalizedNeighborhood);
+  }
+
+  return parts.filter(Boolean).join(", ");
+}
+
 function validateBookingForm({
-  appointmentAddress,
+  appointmentNumber,
   appointmentPlace,
+  appointmentStreet,
   name,
   email,
   phone,
@@ -2660,8 +2759,9 @@ function validateBookingForm({
   phone: string;
   notes: string;
   selectedSlot: string;
-  appointmentAddress: string;
+  appointmentNumber: string;
   appointmentPlace: AppointmentPlace;
+  appointmentStreet: string;
   phoneCountry: (typeof phoneCountries)[number];
   t: Record<string, string>;
 }) {
@@ -2674,8 +2774,12 @@ function validateBookingForm({
     errors.slot = t.slotError;
   }
 
-  if (appointmentPlace === "home" && appointmentAddress.trim().length < 5) {
-    errors.appointmentAddress = t.addressError;
+  if (appointmentPlace === "home" && appointmentStreet.trim().length < 3) {
+    errors.appointmentStreet = t.addressStreetError;
+  }
+
+  if (appointmentPlace === "home" && appointmentNumber.trim().length < 1) {
+    errors.appointmentNumber = t.addressNumberError;
   }
 
   if (!namePattern.test(name)) {
