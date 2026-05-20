@@ -220,7 +220,7 @@ export const translations = {
     todayPending: "Por confirmar",
     todayAvailable: "Horarios disponibles",
     requestsIntro: "Revisá primero las solicitudes pendientes y filtrá rápido por paciente o servicio.",
-    requestSearchPlaceholder: "Buscar por nombre, email, telefono o masaje...",
+    requestSearchPlaceholder: "Buscar solicitud...",
     servicesPending:
       "Vista inicial de servicios. La edición completa de precios y duración queda preparada para la próxima etapa.",
     teamPending: "Por ahora trabaja una profesional. Esta sección queda lista para sumar equipo más adelante.",
@@ -385,7 +385,7 @@ export const translations = {
     todayPending: "Pending",
     todayAvailable: "Available times",
     requestsIntro: "Review pending requests first and filter quickly by patient or service.",
-    requestSearchPlaceholder: "Search by name, email, phone, or massage...",
+    requestSearchPlaceholder: "Search request...",
     servicesPending:
       "Initial services view. Full editing for prices and duration is prepared for the next stage.",
     teamPending: "One professional for now. This section is ready for adding a team later.",
@@ -551,7 +551,7 @@ export const translations = {
     todayPending: "Ожидают",
     todayAvailable: "Свободное время",
     requestsIntro: "Сначала проверьте ожидающие запросы и быстро фильтруйте по пациенту или услуге.",
-    requestSearchPlaceholder: "Поиск по имени, email, телефону или массажу...",
+    requestSearchPlaceholder: "Поиск заявки...",
     servicesPending:
       "Начальный список услуг. Полное редактирование цен и длительности подготовим на следующем этапе.",
     teamPending: "Пока работает один специалист. Этот раздел готов для будущей команды.",

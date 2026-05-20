@@ -1508,12 +1508,14 @@ function AdminRequests({
         <p className="mt-2 text-sm text-[#737373]">{t.requestsIntro}</p>
       </div>
 
-      <input
-        value={requestSearch}
-        onChange={(event) => onSearchChange(event.target.value)}
-        placeholder={t.requestSearchPlaceholder}
-        className={`${inputClass} max-w-sm`}
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input
+          value={requestSearch}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder={t.requestSearchPlaceholder}
+          className="h-9 w-full max-w-[16rem] rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition placeholder:text-[#8a8a8a] focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
+        />
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {([
