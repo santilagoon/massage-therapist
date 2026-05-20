@@ -348,6 +348,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       });
       setFormErrors({});
       setNotice(remoteMode ? t.remoteRequestSuccess : t.success);
+      setSlot("");
 
       if (remoteMode) {
         void notifyAppointmentRequested(appointment, selectedService, locale).catch(() => {
@@ -1106,7 +1107,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
 
                 <button
                   type="submit"
-                  disabled={!selectedSlot}
+                  disabled={isSaving}
                   aria-busy={isSaving}
                   className="h-12 rounded-xl bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
                 >
