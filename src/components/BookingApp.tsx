@@ -97,6 +97,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   const [availabilityBlocks, setAvailabilityBlocks] = useState<AvailabilityBlock[]>([]);
   const [busyAppointments, setBusyAppointments] = useState<Appointment[]>([]);
   const [adminUser, setAdminUser] = useState<User | null>(null);
+  const [isAdminUserMenuOpen, setIsAdminUserMenuOpen] = useState(false);
   const [isLoadingRemote, setIsLoadingRemote] = useState(isSupabaseConfigured);
   const [isLoadingAdmin, setIsLoadingAdmin] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -416,10 +417,16 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
 
   function openAdminAccess() {
     if (isAdminPage && adminUser) {
+      setIsAdminUserMenuOpen((current) => !current);
       return;
     }
 
     window.location.href = "/admin";
+  }
+
+  async function logoutFromUserMenu() {
+    setIsAdminUserMenuOpen(false);
+    await handleAdminLogout();
   }
 
   async function handleCreateBlock(input: {
@@ -542,23 +549,37 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
               {adminUser ? (
                 <AdminTopNav adminView={adminView} t={t} onViewChange={setAdminView} />
               ) : (
-                <div className="rounded-full border border-[#e5e5e5] bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#404040]">
-                  {t.adminPanel}
-                </div>
+                <div className="flex-1" />
               )}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={openAdminAccess}
-                  title={adminUser ? t.adminProfile : t.loginAdmin}
-                  aria-label={adminUser ? t.adminProfile : t.loginAdmin}
-                  className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
-                >
-                  <UserIcon />
-                  <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
-                    {adminUser ? t.adminProfile : t.loginAdmin}
-                  </span>
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={openAdminAccess}
+                    title={adminUser ? t.logout : t.loginAdmin}
+                    aria-label={adminUser ? t.logout : t.loginAdmin}
+                    aria-expanded={adminUser ? isAdminUserMenuOpen : undefined}
+                    className="group flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
+                  >
+                    <UserIcon />
+                    {!adminUser ? (
+                      <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
+                        {t.loginAdmin}
+                      </span>
+                    ) : null}
+                  </button>
+                  {adminUser && isAdminUserMenuOpen ? (
+                    <div className="absolute right-0 top-12 z-20 min-w-28 rounded-xl border border-[#e5e5e5] bg-white p-1 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => void logoutFromUserMenu()}
+                        className="h-9 w-full cursor-pointer rounded-lg px-3 text-left text-sm font-semibold text-[#8a4329] transition hover:bg-[#fff7f2]"
+                      >
+                        {t.logout}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <label className="sr-only" htmlFor="admin-language">
                   {t.language}
                 </label>
@@ -2190,11 +2211,12 @@ function AdminLogin({
   }
 
   return (
-    <form onSubmit={submitLogin} className="mx-auto mt-10 grid w-full max-w-sm gap-3 rounded-2xl border border-[#e5e5e5] bg-white p-4 shadow-sm">
+    <form onSubmit={submitLogin} className="mx-auto mt-8 grid w-full max-w-[22rem] gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm">
       <div className="mb-1 text-center">
         <h1 className="text-lg font-semibold text-[#111111]">{t.login}</h1>
       </div>
-      <Field label={t.email}>
+      <label className="grid gap-1.5 text-xs font-semibold text-[#413c36]">
+        <span>{t.email}</span>
         <input
           required
           type="email"
@@ -2207,9 +2229,10 @@ function AdminLogin({
           }
           className={adminLoginInputClass}
         />
-      </Field>
+      </label>
 
-      <Field label={t.password}>
+      <label className="grid gap-1.5 text-xs font-semibold text-[#413c36]">
+        <span>{t.password}</span>
         <input
           required
           type="password"
@@ -2222,7 +2245,7 @@ function AdminLogin({
           }
           className={adminLoginInputClass}
         />
-      </Field>
+      </label>
 
       <button
         type="submit"
@@ -2348,7 +2371,7 @@ const inputClass =
   "min-h-12 w-full rounded-xl border border-[#d4d4d4] bg-white px-3 py-2 text-base outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15 sm:text-sm";
 
 const adminLoginInputClass =
-  "h-10 w-full rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
+  "h-9 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
 
 function filterButtonClass(active: boolean) {
   return [
