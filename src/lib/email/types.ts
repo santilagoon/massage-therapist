@@ -1,6 +1,7 @@
 import { AppointmentStatus, Locale } from "@/lib/booking";
 
 export type EmailAppointmentPayload = {
+  appointmentUrl?: string;
   patientName: string;
   patientEmail: string;
   patientPhone?: string;

@@ -1,4 +1,5 @@
 import { Appointment, AppointmentStatus, Locale, Service } from "@/lib/booking";
+import type { PublicAppointment } from "@/lib/supabase/bookings";
 
 export async function notifyAppointmentRequested(
   appointment: Appointment,
@@ -6,6 +7,9 @@ export async function notifyAppointmentRequested(
   locale: Locale,
 ) {
   await postNotification("/api/notifications/appointment-requested", {
+    appointmentUrl: appointment.publicToken
+      ? `${window.location.origin}/reserva/${appointment.publicToken}`
+      : undefined,
     patientName: appointment.patientName,
     patientEmail: appointment.patientEmail,
     patientPhone: appointment.patientPhone,
@@ -24,6 +28,9 @@ export async function notifyAppointmentStatus(
   status: Extract<AppointmentStatus, "confirmed" | "declined">,
 ) {
   await postNotification("/api/notifications/appointment-status", {
+    appointmentUrl: appointment.publicToken
+      ? `${window.location.origin}/reserva/${appointment.publicToken}`
+      : undefined,
     patientName: appointment.patientName,
     patientEmail: appointment.patientEmail,
     patientPhone: appointment.patientPhone,
@@ -33,6 +40,22 @@ export async function notifyAppointmentStatus(
     endsAt: appointment.endsAt,
     notes: appointment.notes,
     status,
+  });
+}
+
+export async function notifyAppointmentCancelled(appointment: PublicAppointment) {
+  await postNotification("/api/notifications/appointment-cancelled", {
+    appointmentUrl: appointment.publicToken
+      ? `${window.location.origin}/reserva/${appointment.publicToken}`
+      : undefined,
+    patientName: appointment.patientName,
+    patientEmail: appointment.patientEmail,
+    patientPhone: appointment.patientPhone,
+    language: appointment.language,
+    serviceTitle: appointment.serviceTitle,
+    startsAt: appointment.startsAt,
+    endsAt: appointment.endsAt,
+    notes: appointment.notes,
   });
 }
 

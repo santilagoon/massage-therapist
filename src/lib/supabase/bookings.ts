@@ -25,7 +25,34 @@ type BusyWindowRow = {
 
 type AppointmentRow = {
   id: string;
+  public_token?: string | null;
   service_id: string;
+  starts_at: string;
+  ends_at: string;
+  patient_name: string;
+  patient_email: string;
+  patient_phone: string | null;
+  patient_language: Locale;
+  notes: string | null;
+  status: AppointmentStatus;
+  created_at: string;
+};
+
+export type PublicAppointment = Appointment & {
+  serviceDescription: string;
+  serviceDurationMinutes: number;
+  servicePriceCents: number | null;
+  serviceTitle: string;
+};
+
+type PublicAppointmentRow = {
+  id: string;
+  public_token: string;
+  service_id: string;
+  service_title: string;
+  service_description: string;
+  service_duration_minutes: number;
+  service_price_cents: number | null;
   starts_at: string;
   ends_at: string;
   patient_name: string;
@@ -129,26 +156,98 @@ export async function requestRemoteAppointment(input: {
 
   const appointment = createAppointment(input);
 
-  const { error } = await withTimeout(
-    supabase.from("appointments").insert({
-      service_id: input.service.id,
-      starts_at: appointment.startsAt,
-      ends_at: appointment.endsAt,
-      patient_name: appointment.patientName,
-      patient_email: appointment.patientEmail.trim().toLowerCase(),
-      patient_phone: appointment.patientPhone || null,
-      patient_language: appointment.language,
-      notes: appointment.notes || null,
-      status: "pending_approval",
-    }),
+  const appointmentRow = {
+    service_id: input.service.id,
+    starts_at: appointment.startsAt,
+    ends_at: appointment.endsAt,
+    patient_name: appointment.patientName,
+    patient_email: appointment.patientEmail.trim().toLowerCase(),
+    patient_phone: appointment.patientPhone || null,
+    patient_language: appointment.language,
+    notes: appointment.notes || null,
+    status: "pending_approval",
+  };
+  const { data, error } = await withTimeout(
+    supabase
+      .from("appointments")
+      .insert(appointmentRow)
+      .select(
+        "id, public_token, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
+      )
+      .single(),
     "Supabase did not respond while creating the appointment.",
+  );
+
+  if (error && error.message.toLowerCase().includes("public_token")) {
+    const { data: fallbackData, error: fallbackError } = await withTimeout(
+      supabase
+        .from("appointments")
+        .insert(appointmentRow)
+        .select(
+          "id, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
+        )
+        .single(),
+      "Supabase did not respond while creating the appointment.",
+    );
+
+    if (fallbackError) {
+      throw new Error(fallbackError.message);
+    }
+
+    return fallbackData ? mapAppointmentRow(fallbackData as AppointmentRow) : appointment;
+  }
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ? mapAppointmentRow(data as AppointmentRow) : appointment;
+}
+
+export async function loadPublicAppointment(token: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { data, error } = await withTimeout(
+    supabase.rpc("get_public_appointment", { appointment_token: token }),
+    "Supabase did not respond while loading the appointment.",
   );
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return appointment;
+  const row = ((data ?? []) as PublicAppointmentRow[])[0];
+  if (!row) {
+    return null;
+  }
+
+  return mapPublicAppointmentRow(row);
+}
+
+export async function cancelPublicAppointment(token: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { data, error } = await withTimeout(
+    supabase.rpc("cancel_public_appointment", { appointment_token: token }),
+    "Supabase did not respond while cancelling the appointment.",
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = ((data ?? []) as PublicAppointmentRow[])[0];
+  if (!row) {
+    return null;
+  }
+
+  return mapPublicAppointmentRow(row);
 }
 
 export async function loadAdminAppointments() {
@@ -161,11 +260,29 @@ export async function loadAdminAppointments() {
     supabase
       .from("appointments")
       .select(
-        "id, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
+        "id, public_token, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
       )
       .order("created_at", { ascending: false }),
     "Supabase did not respond while loading admin appointments.",
   );
+
+  if (error && error.message.toLowerCase().includes("public_token")) {
+    const { data: fallbackData, error: fallbackError } = await withTimeout(
+      supabase
+        .from("appointments")
+        .select(
+          "id, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
+        )
+        .order("created_at", { ascending: false }),
+      "Supabase did not respond while loading admin appointments.",
+    );
+
+    if (fallbackError) {
+      throw new Error(fallbackError.message);
+    }
+
+    return ((fallbackData ?? []) as AppointmentRow[]).map(mapAppointmentRow);
+  }
 
   if (error) {
     throw new Error(error.message);
@@ -242,11 +359,31 @@ export async function updateRemoteAppointmentStatus(
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select(
-        "id, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
+        "id, public_token, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
       )
       .single(),
     "Supabase did not respond while updating the appointment.",
   );
+
+  if (error && error.message.toLowerCase().includes("public_token")) {
+    const { data: fallbackData, error: fallbackError } = await withTimeout(
+      supabase
+        .from("appointments")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select(
+          "id, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
+        )
+        .single(),
+      "Supabase did not respond while updating the appointment.",
+    );
+
+    if (fallbackError) {
+      throw new Error(fallbackError.message);
+    }
+
+    return mapAppointmentRow(fallbackData as AppointmentRow);
+  }
 
   if (error) {
     throw new Error(error.message);
@@ -296,6 +433,7 @@ function mapAvailabilityBlockRow(row: AvailabilityBlockRow): AvailabilityBlock {
 function mapAppointmentRow(row: AppointmentRow): Appointment {
   return {
     id: row.id,
+    publicToken: row.public_token ?? undefined,
     serviceId: row.service_id,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -306,5 +444,26 @@ function mapAppointmentRow(row: AppointmentRow): Appointment {
     notes: row.notes ?? "",
     status: row.status,
     createdAt: row.created_at,
+  };
+}
+
+function mapPublicAppointmentRow(row: PublicAppointmentRow): PublicAppointment {
+  return {
+    id: row.id,
+    publicToken: row.public_token,
+    serviceId: row.service_id,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    patientName: row.patient_name,
+    patientEmail: row.patient_email,
+    patientPhone: row.patient_phone ?? "",
+    language: row.patient_language,
+    notes: row.notes ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    serviceDescription: row.service_description,
+    serviceDurationMinutes: row.service_duration_minutes,
+    servicePriceCents: row.service_price_cents,
+    serviceTitle: row.service_title,
   };
 }

@@ -16,6 +16,7 @@ export function patientRequestReceivedEmail(payload: EmailAppointmentPayload) {
   return {
     subject: "Solicitud de turno recibida",
     html: baseEmailHtml({
+      actionLabel: "Abrir solicitud",
       title: "Solicitud de turno recibida",
       intro,
       payload,
@@ -52,12 +53,38 @@ export function patientStatusEmail(payload: AppointmentStatusEmailPayload) {
   };
 }
 
+export function patientCancellationEmail(payload: EmailAppointmentPayload) {
+  return {
+    subject: "Reserva cancelada",
+    html: baseEmailHtml({
+      title: "Reserva cancelada",
+      intro:
+        "Tu reserva fue cancelada correctamente. Si necesitás otro horario, podés volver a solicitarlo desde la web.",
+      payload,
+    }),
+  };
+}
+
+export function therapistCancellationEmail(payload: EmailAppointmentPayload) {
+  return {
+    subject: `Reserva cancelada por paciente: ${payload.patientName}`,
+    html: baseEmailHtml({
+      title: "Reserva cancelada por paciente",
+      intro: "El paciente canceló una solicitud o turno desde su enlace de gestión.",
+      payload,
+      includePatientContact: true,
+    }),
+  };
+}
+
 function baseEmailHtml({
+  actionLabel,
   title,
   intro,
   payload,
   includePatientContact = false,
 }: {
+  actionLabel?: string;
   title: string;
   intro: string;
   payload: EmailAppointmentPayload;
@@ -83,6 +110,16 @@ function baseEmailHtml({
             : ""
         }
       </div>
+      ${
+        payload.appointmentUrl
+          ? `<p style="margin-top: 24px;">
+              <a href="${escapeHtml(payload.appointmentUrl)}" style="display: inline-block; padding: 12px 18px; border-radius: 999px; background: #111111; color: #ffffff; text-decoration: none; font-weight: 700;">
+                ${escapeHtml(actionLabel ?? "Abrir reserva")}
+              </a>
+            </p>
+            <p style="font-size: 13px; color: #6b6259;">Desde ese enlace podes ver el detalle y cancelar la solicitud si lo necesitás.</p>`
+          : ""
+      }
     </div>
   `;
 }

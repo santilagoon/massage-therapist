@@ -20,6 +20,7 @@ export type AppointmentStatus =
 
 export type Appointment = {
   id: string;
+  publicToken?: string;
   serviceId: string;
   startsAt: string;
   endsAt: string;
