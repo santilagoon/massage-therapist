@@ -8,16 +8,27 @@ export async function POST(request: Request) {
   const config = getEmailConfig();
 
   if (!config.isConfigured) {
-    return NextResponse.json({ ok: true, skipped: true });
+    return NextResponse.json(
+      { ok: false, error: "Email notifications are unavailable." },
+      { status: 503 },
+    );
   }
 
   const email = patientStatusEmail(payload);
 
-  await sendEmail({
-    to: payload.patientEmail,
-    subject: email.subject,
-    html: email.html,
-  });
+  try {
+    await sendEmail({
+      to: payload.patientEmail,
+      subject: email.subject,
+      html: email.html,
+    });
+  } catch (error) {
+    console.error("Appointment status email failed", error);
+    return NextResponse.json(
+      { ok: false, error: "Email notification could not be sent." },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({ ok: true, skipped: false });
 }

@@ -67,6 +67,7 @@ type BookingFormErrors = Partial<Record<BookingFormField, string>>;
 type SubmittedRequestDetails = {
   address: string;
   appointment: Appointment;
+  emailDelivery: "failed" | "pending" | "sent";
   placeLabel: string;
   priceLabel: string;
   serviceTitle: string;
@@ -346,6 +347,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       setSubmittedRequest({
         address: appointmentAddress,
         appointment,
+        emailDelivery: remoteMode ? "pending" : "failed",
         placeLabel: getAppointmentPlaceLabel(form.appointmentPlace, t),
         priceLabel: formatServicePrice(selectedService, locale, t, displayCurrency),
         serviceTitle: selectedService.title[locale],
@@ -367,9 +369,22 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       setSlot("");
 
       if (remoteMode) {
-        void notifyAppointmentRequested(appointment, selectedService, locale).catch(() => {
-          setNotice(t.emailSkipped);
-        });
+        void notifyAppointmentRequested(appointment, selectedService, locale)
+          .then(() => {
+            setSubmittedRequest((current) =>
+              current?.appointment.id === appointment.id
+                ? { ...current, emailDelivery: "sent" }
+                : current,
+            );
+          })
+          .catch(() => {
+            setSubmittedRequest((current) =>
+              current?.appointment.id === appointment.id
+                ? { ...current, emailDelivery: "failed" }
+                : current,
+            );
+            setNotice(t.emailSkipped);
+          });
         void refreshBusySlots(date);
       }
     } catch (error) {
@@ -1248,8 +1263,14 @@ function PreApprovalModal({
           </dl>
 
           <div className="grid gap-2 rounded-2xl bg-[#f5f5f5] p-4 text-sm leading-6 text-[#404040]">
-            <p>{t.emailSentTo.replace("{email}", details.appointment.patientEmail)}</p>
-            <p>{t.spamReminder}</p>
+            {details.emailDelivery === "sent" ? (
+              <>
+                <p>{t.emailSentTo.replace("{email}", details.appointment.patientEmail)}</p>
+                <p>{t.spamReminder}</p>
+              </>
+            ) : null}
+            {details.emailDelivery === "pending" ? <p>{t.emailSending}</p> : null}
+            {details.emailDelivery === "failed" ? <p>{t.emailFailed}</p> : null}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

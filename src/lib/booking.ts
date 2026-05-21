@@ -216,6 +216,9 @@ export const translations = {
       "Tu solicitud fue enviada correctamente y queda pendiente de aprobación profesional. Maria revisará los datos y confirmará si puede tomar el turno.",
     emailSentTo: "Enviamos el detalle de la solicitud a {email}.",
     spamReminder: "Si no ves el email, revisá Spam o Correo no deseado.",
+    emailSending: "Estamos enviando el detalle de la solicitud por email.",
+    emailFailed:
+      "La solicitud quedó registrada, pero no pudimos enviar el email de detalle. Maria igualmente podrá verla en el panel.",
     newRequest: "Hacer otra solicitud",
     close: "Entendido",
     pendingCopy:
@@ -399,6 +402,9 @@ export const translations = {
       "Your request was sent successfully and is pending professional approval. Maria will review the details and confirm whether she can take the appointment.",
     emailSentTo: "We sent the request details to {email}.",
     spamReminder: "If you do not see the email, check Spam or Junk.",
+    emailSending: "We are sending the request details by email.",
+    emailFailed:
+      "The request was saved, but we could not send the detail email. Maria will still be able to see it in the panel.",
     newRequest: "Make another request",
     close: "Got it",
     pendingCopy:
@@ -583,6 +589,9 @@ export const translations = {
       "Ваш запрос успешно отправлен и ожидает подтверждения специалиста. Мария проверит данные и подтвердит, сможет ли принять запись.",
     emailSentTo: "Мы отправили детали запроса на {email}.",
     spamReminder: "Если письма нет, проверьте папку Спам.",
+    emailSending: "Мы отправляем детали запроса по email.",
+    emailFailed:
+      "Заявка сохранена, но письмо с деталями отправить не удалось. Maria всё равно увидит её в панели.",
     newRequest: "Создать другой запрос",
     close: "Понятно",
     pendingCopy:

@@ -11,24 +11,35 @@ export async function POST(request: Request) {
   const config = getEmailConfig();
 
   if (!config.isConfigured || !config.therapistEmail) {
-    return NextResponse.json({ ok: true, skipped: true });
+    return NextResponse.json(
+      { ok: false, error: "Email notifications are unavailable." },
+      { status: 503 },
+    );
   }
 
   const patientEmail = patientRequestReceivedEmail(payload);
   const therapistEmail = therapistRequestReceivedEmail(payload);
 
-  await Promise.all([
-    sendEmail({
-      to: payload.patientEmail,
-      subject: patientEmail.subject,
-      html: patientEmail.html,
-    }),
-    sendEmail({
-      to: config.therapistEmail,
-      subject: therapistEmail.subject,
-      html: therapistEmail.html,
-    }),
-  ]);
+  try {
+    await Promise.all([
+      sendEmail({
+        to: payload.patientEmail,
+        subject: patientEmail.subject,
+        html: patientEmail.html,
+      }),
+      sendEmail({
+        to: config.therapistEmail,
+        subject: therapistEmail.subject,
+        html: therapistEmail.html,
+      }),
+    ]);
+  } catch (error) {
+    console.error("Appointment request email failed", error);
+    return NextResponse.json(
+      { ok: false, error: "Email notification could not be sent." },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({ ok: true, skipped: false });
 }
