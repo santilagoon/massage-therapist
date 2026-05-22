@@ -388,18 +388,6 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         void refreshBusySlots(date);
       }
     } catch (error) {
-      const appointment = createAppointment({
-        service: selectedService,
-        startsAt: selectedSlot,
-        patientName: normalizedName,
-        patientEmail: normalizedEmail,
-        patientPhone: normalizedPhone,
-        language: locale,
-        notes: notesWithPlace,
-      });
-
-      setRemoteMode(false);
-      setAppointments((current) => [appointment, ...current]);
       logTechnicalError(error);
       setNotice(t.systemError);
     } finally {
@@ -2564,9 +2552,7 @@ function AppointmentRow({
 }
 
 function logTechnicalError(error: unknown) {
-  if (process.env.NODE_ENV !== "production") {
-    console.error(error);
-  }
+  console.error(error);
 }
 
 function getSignInNotice(error: unknown, t: Record<string, string>) {
