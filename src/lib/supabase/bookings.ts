@@ -156,52 +156,26 @@ export async function requestRemoteAppointment(input: {
 
   const appointment = createAppointment(input);
 
-  const appointmentRow = {
-    service_id: input.service.id,
-    starts_at: appointment.startsAt,
-    ends_at: appointment.endsAt,
-    patient_name: appointment.patientName,
-    patient_email: appointment.patientEmail.trim().toLowerCase(),
-    patient_phone: appointment.patientPhone || null,
-    patient_language: appointment.language,
-    notes: appointment.notes || null,
-    status: "pending_approval",
-  };
   const { data, error } = await withTimeout(
-    supabase
-      .from("appointments")
-      .insert(appointmentRow)
-      .select(
-        "id, public_token, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
-      )
-      .single(),
+    supabase.rpc("request_public_appointment", {
+      appointment_ends_at: appointment.endsAt,
+      appointment_notes: appointment.notes || "",
+      appointment_patient_email: appointment.patientEmail.trim().toLowerCase(),
+      appointment_patient_language: appointment.language,
+      appointment_patient_name: appointment.patientName,
+      appointment_patient_phone: appointment.patientPhone || "",
+      appointment_service_id: input.service.id,
+      appointment_starts_at: appointment.startsAt,
+    }),
     "Supabase did not respond while creating the appointment.",
   );
-
-  if (error && error.message.toLowerCase().includes("public_token")) {
-    const { data: fallbackData, error: fallbackError } = await withTimeout(
-      supabase
-        .from("appointments")
-        .insert(appointmentRow)
-        .select(
-          "id, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
-        )
-        .single(),
-      "Supabase did not respond while creating the appointment.",
-    );
-
-    if (fallbackError) {
-      throw new Error(fallbackError.message);
-    }
-
-    return fallbackData ? mapAppointmentRow(fallbackData as AppointmentRow) : appointment;
-  }
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data ? mapAppointmentRow(data as AppointmentRow) : appointment;
+  const row = ((data ?? []) as AppointmentRow[])[0];
+  return row ? mapAppointmentRow(row) : appointment;
 }
 
 export async function loadPublicAppointment(token: string) {
