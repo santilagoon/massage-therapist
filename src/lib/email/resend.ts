@@ -25,12 +25,18 @@ export async function sendEmail(input: {
 
   const resend = new Resend(resendApiKey);
 
-  await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: emailFrom,
     to: input.to,
     subject: input.subject,
     html: input.html,
   });
 
-  return { skipped: false };
+  if (error) {
+    throw new Error(
+      `${error.name}: ${error.message}${error.statusCode ? ` (${error.statusCode})` : ""}`,
+    );
+  }
+
+  return { id: data?.id, skipped: false };
 }
