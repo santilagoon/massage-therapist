@@ -56,6 +56,7 @@ Use this skill for service-booking apps where a client requests an appointment o
 ## UX Decisions
 
 - Do not require client registration in the MVP unless the business truly needs patient history.
+- When client accounts are added, include an email-code verification step after login or registration before showing private history.
 - Make phone required if the professional needs it to validate or contact patients.
 - Keep notes optional.
 - Show a clear success modal after request creation with the request code and selected appointment details.
@@ -76,6 +77,7 @@ Use this skill for service-booking apps where a client requests an appointment o
 
 - Google Places Autocomplete for at-home addresses in Buenos Aires.
 - Client login and registration with Google/email for history and self-service changes.
+- Email verification code UI for account login/registration, with resend-code and use-different-email actions.
 - Service CRUD for prices, duration, currency, descriptions, and active/inactive status.
 - Income dashboard with manual revenue entries for custom-priced services.
 - FAQ bot or guided assistant on the landing page; start with a simple FAQ widget before adding Telegram, WhatsApp, or AI automation.
