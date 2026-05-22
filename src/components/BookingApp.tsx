@@ -1463,7 +1463,6 @@ function AdminPanel({
           locale={locale}
           selectedDate={selectedDate}
           services={services}
-          stats={stats}
           t={t}
           onDateChange={setSelectedDate}
           onRefresh={onRefresh}
@@ -1608,7 +1607,6 @@ function AdminDashboard({
   locale,
   selectedDate,
   services,
-  stats,
   t,
   onDateChange,
   onRefresh,
@@ -1621,50 +1619,26 @@ function AdminDashboard({
   locale: Locale;
   selectedDate: string;
   services: typeof fallbackServices;
-  stats: ReturnType<typeof getAdminStats>;
   t: Record<string, string>;
   onDateChange: (date: string) => void;
   onRefresh: () => Promise<void>;
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
 }) {
-  const today = getTodayDateValue();
-  const todayAppointments = appointments.filter((appointment) =>
-    isSameDateValue(appointment.startsAt, today),
-  );
-  const todayConfirmed = todayAppointments.filter(
-    (appointment) => appointment.status === "confirmed",
-  );
-  const todayPending = todayAppointments.filter(
-    (appointment) => appointment.status === "pending_approval",
-  );
-  const todayPatients = new Set(
-    todayAppointments.map((appointment) => appointment.patientEmail || appointment.patientName),
-  ).size;
-  const todayBlocks = availabilityBlocks.filter((block) => isSameDateValue(block.startsAt, today));
   const selectedDateAppointments = appointments.filter((appointment) =>
     isSameDateValue(appointment.startsAt, selectedDate),
   );
   const selectedDateBlocks = availabilityBlocks.filter((block) =>
     isSameDateValue(block.startsAt, selectedDate),
   );
-  const availableToday = services[0]
-    ? getAvailableSlots(today, services[0], [
-        ...todayAppointments,
-        ...todayBlocks.map((block) => ({
-          id: block.id,
-          serviceId: services[0].id,
-          startsAt: block.startsAt,
-          endsAt: block.endsAt,
-          patientName: t.blockedTime,
-          patientEmail: "",
-          patientPhone: "",
-          language: locale,
-          notes: block.reason ?? "",
-          status: "confirmed" as AppointmentStatus,
-          createdAt: block.createdAt,
-        })),
-      ]).length
-    : 0;
+  const selectedDateConfirmed = selectedDateAppointments.filter(
+    (appointment) => appointment.status === "confirmed",
+  );
+  const selectedDatePending = selectedDateAppointments.filter(
+    (appointment) => appointment.status === "pending_approval",
+  );
+  const selectedDateActive = selectedDateAppointments.filter((appointment) =>
+    ["confirmed", "pending_approval"].includes(appointment.status),
+  );
 
   return (
     <section className="grid gap-5">
@@ -1672,7 +1646,7 @@ function AdminDashboard({
         <div>
           <h1 className="text-3xl font-semibold text-[#111111]">{t.adminGreeting}</h1>
           <p className="mt-2 text-sm text-[#737373]">
-            {formatSummaryDate(`${today}T00:00:00`, locale)}
+            {formatSummaryDate(`${selectedDate}T00:00:00`, locale)}
           </p>
         </div>
         <button
@@ -1685,14 +1659,11 @@ function AdminDashboard({
         </button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <AdminStat label={t.todayPatients} value={todayPatients} />
-        <AdminStat label={t.todayConfirmed} value={todayConfirmed.length} />
-        <AdminStat label={t.todayPending} value={todayPending.length} />
-        <AdminStat label={t.todayAvailable} value={availableToday} />
+      <div className="grid gap-3 md:grid-cols-3">
+        <AdminStat label={t.dayAppointments} value={selectedDateActive.length} />
+        <AdminStat label={t.todayConfirmed} value={selectedDateConfirmed.length} />
+        <AdminStat label={t.todayPending} value={selectedDatePending.length} />
       </div>
-
-      <AdminStats stats={stats} t={t} />
 
       <AdminAgenda
         appointments={selectedDateAppointments}
@@ -2376,23 +2347,6 @@ function UserIcon() {
         d="M4.5 20a7.5 7.5 0 0 1 15 0"
       />
     </svg>
-  );
-}
-
-function AdminStats({
-  stats,
-  t,
-}: {
-  stats: ReturnType<typeof getAdminStats>;
-  t: Record<string, string>;
-}) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-4">
-      <AdminStat label={t.totalAppointments} value={stats.total} />
-      <AdminStat label={t.pendingAppointments} value={stats.pending} />
-      <AdminStat label={t.confirmedAppointments} value={stats.confirmed} />
-      <AdminStat label={t.futureAppointments} value={stats.futureConfirmed} />
-    </div>
   );
 }
 
