@@ -33,6 +33,7 @@ import {
   getCurrentAdminUser,
   signInAdmin,
   signOutAdmin,
+  signUpAccount,
 } from "@/lib/supabase/auth";
 import {
   notifyAppointmentRequested,
@@ -430,6 +431,29 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     }
   }
 
+  async function handleAccountRegister(input: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+  }) {
+    setIsLoadingAdmin(true);
+    try {
+      await signUpAccount({
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        email: input.email.trim(),
+        password: input.password,
+      });
+      setNotice(t.registerSuccess);
+    } catch (error) {
+      logTechnicalError(error);
+      setNotice(t.registerError);
+    } finally {
+      setIsLoadingAdmin(false);
+    }
+  }
+
   async function handleAdminLogout() {
     await signOutAdmin();
     setAdminUser(null);
@@ -640,7 +664,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
           </header>
 
           <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:py-10">
-            {adminNotice ? (
+            {adminNotice && adminUser ? (
               <p className="mx-auto w-full max-w-sm rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
                 {adminNotice}
               </p>
@@ -654,7 +678,9 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
               isLoading={isLoadingAdmin || isUpdatingStatus}
               locale={locale}
               t={t}
+              notice={adminNotice}
               onLogin={handleAdminLogin}
+              onRegister={handleAccountRegister}
               onLogout={handleAdminLogout}
               onRefresh={loadAdminData}
               onCreateBlock={handleCreateBlock}
@@ -1371,7 +1397,9 @@ function AdminPanel({
   isLoading,
   locale,
   t,
+  notice,
   onLogin,
+  onRegister,
   onLogout,
   onRefresh,
   onCreateBlock,
@@ -1385,7 +1413,14 @@ function AdminPanel({
   isLoading: boolean;
   locale: Locale;
   t: Record<string, string>;
+  notice: string;
   onLogin: (email: string, password: string) => Promise<void>;
+  onRegister: (input: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+  }) => Promise<void>;
   onLogout: () => Promise<void>;
   onRefresh: () => Promise<void>;
   onCreateBlock: (input: {
@@ -1449,7 +1484,15 @@ function AdminPanel({
     });
 
   if (!adminUser) {
-    return <AdminLogin isLoading={isLoading} t={t} onLogin={onLogin} />;
+    return (
+      <AdminLogin
+        isLoading={isLoading}
+        notice={notice}
+        t={t}
+        onLogin={onLogin}
+        onRegister={onRegister}
+      />
+    );
   }
 
   return (
@@ -2363,74 +2406,181 @@ function AdminStat({ label, value }: { label: string; value: number }) {
 
 function AdminLogin({
   isLoading,
+  notice,
   t,
   onLogin,
+  onRegister,
 }: {
   isLoading: boolean;
+  notice: string;
   t: Record<string, string>;
   onLogin: (email: string, password: string) => Promise<void>;
+  onRegister: (input: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+  }) => Promise<void>;
 }) {
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [registration, setRegistration] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+  });
 
-  function submitLogin(event: React.FormEvent<HTMLFormElement>) {
+  function submitAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void onLogin(credentials.email, credentials.password);
+
+    if (authMode === "login") {
+      void onLogin(credentials.email, credentials.password);
+      return;
+    }
+
+    void onRegister(registration);
   }
 
   return (
-    <form onSubmit={submitLogin} className="mx-auto mt-8 grid w-full max-w-[23rem] gap-5 rounded-xl border border-[#262626] bg-[#111111] p-5 text-white shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-      <div className="grid grid-cols-2 rounded-lg bg-white/10 p-1">
-        <span className="flex h-9 items-center justify-center rounded-md bg-white text-sm font-semibold text-[#111111]">
-          {t.login}
-        </span>
-        <span className="flex h-9 items-center justify-center rounded-md text-sm font-semibold text-white/45">
-          {t.register}
-        </span>
-      </div>
-
+    <form
+      onSubmit={submitAuth}
+      className="mx-auto mt-8 grid w-full max-w-[28rem] gap-5 rounded-xl border border-[#d8d8d8] bg-white px-7 py-8 text-[#111111] shadow-[0_18px_48px_rgba(17,17,17,0.14)]"
+    >
       <div className="text-center">
-        <h1 className="text-xl font-semibold text-white">{t.login}</h1>
+        <p className="text-xl font-bold tracking-[0.08em]">MM</p>
+        <h1 className="mt-5 text-2xl font-semibold">
+          {authMode === "login" ? t.signInTitle : t.createAccountTitle}
+        </h1>
       </div>
-      <label className="grid gap-1 text-xs font-semibold text-white/70">
-        <span>{t.email}</span>
-        <input
-          required
-          type="email"
-          value={credentials.email}
-          onChange={(event) =>
-            setCredentials((current) => ({
-              ...current,
-              email: event.target.value,
-            }))
-          }
-          className={adminLoginInputClass}
-        />
-      </label>
 
-      <label className="grid gap-1 text-xs font-semibold text-white/70">
-        <span>{t.password}</span>
-        <input
-          required
-          type="password"
-          value={credentials.password}
-          onChange={(event) =>
-            setCredentials((current) => ({
-              ...current,
-              password: event.target.value,
-            }))
-          }
-          className={adminLoginInputClass}
-        />
-      </label>
+      <div className="grid grid-cols-2 rounded-md bg-[#f0f0f0] p-1">
+        <button
+          type="button"
+          onClick={() => setAuthMode("login")}
+          className={authModeTabClass(authMode === "login")}
+        >
+          {t.login}
+        </button>
+        <button
+          type="button"
+          onClick={() => setAuthMode("register")}
+          className={authModeTabClass(authMode === "register")}
+        >
+          {t.register}
+        </button>
+      </div>
+
+      {authMode === "register" ? (
+        <div className="grid gap-3">
+          <AuthInput
+            label={t.firstName}
+            value={registration.firstName}
+            onChange={(value) =>
+              setRegistration((current) => ({ ...current, firstName: value }))
+            }
+          />
+          <AuthInput
+            label={t.lastName}
+            value={registration.lastName}
+            onChange={(value) =>
+              setRegistration((current) => ({ ...current, lastName: value }))
+            }
+          />
+          <AuthInput
+            label={t.email}
+            type="email"
+            value={registration.email}
+            onChange={(value) =>
+              setRegistration((current) => ({ ...current, email: value }))
+            }
+          />
+          <AuthInput
+            label={t.password}
+            type="password"
+            value={registration.password}
+            minLength={6}
+            onChange={(value) =>
+              setRegistration((current) => ({ ...current, password: value }))
+            }
+          />
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          <AuthInput
+            label={t.email}
+            type="email"
+            value={credentials.email}
+            onChange={(value) =>
+              setCredentials((current) => ({ ...current, email: value }))
+            }
+          />
+          <AuthInput
+            label={t.password}
+            type="password"
+            value={credentials.password}
+            onChange={(value) =>
+              setCredentials((current) => ({ ...current, password: value }))
+            }
+          />
+        </div>
+      )}
+
+      {notice ? (
+        <p className="rounded-md border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-center text-sm text-[#4b4b4b]">
+          {notice}
+        </p>
+      ) : null}
 
       <button
         type="submit"
         disabled={isLoading}
-        className="h-11 cursor-pointer rounded-lg bg-white px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-white/60"
+        className="h-12 cursor-pointer rounded-md bg-[#111111] px-4 text-sm font-bold uppercase tracking-[0.08em] text-white transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
       >
-        {isLoading ? t.loading : t.login}
+        {isLoading ? t.loading : authMode === "login" ? t.login : t.signUp}
       </button>
+
+      <p className="text-center text-sm text-[#6b6b6b]">
+        {authMode === "login" ? t.noAccount : t.alreadyAccount}{" "}
+        <button
+          type="button"
+          onClick={() =>
+            setAuthMode((current) => (current === "login" ? "register" : "login"))
+          }
+          className="cursor-pointer font-semibold text-[#111111] underline-offset-4 hover:underline"
+        >
+          {authMode === "login" ? t.register : t.login}
+        </button>
+      </p>
     </form>
+  );
+}
+
+function AuthInput({
+  label,
+  type = "text",
+  value,
+  minLength,
+  onChange,
+}: {
+  label: string;
+  type?: "text" | "email" | "password";
+  value: string;
+  minLength?: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-1 text-sm font-medium text-[#5b5b5b]">
+      <span>{label}</span>
+      <input
+        required
+        type={type}
+        value={value}
+        minLength={minLength}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 rounded-md border border-[#d7d7d7] bg-[#eef4ff] px-3 text-base text-[#111111] outline-none transition focus:border-[#111111] focus:bg-white focus:ring-2 focus:ring-[#111111]/10"
+      />
+    </label>
   );
 }
 
@@ -2547,8 +2697,14 @@ const inputClass =
 const compactInputClass =
   "h-11 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
 
-const adminLoginInputClass =
-  "h-10 w-full border-0 border-b border-white/35 bg-transparent px-1 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white";
+function authModeTabClass(active: boolean) {
+  return [
+    "h-10 cursor-pointer rounded-[4px] text-sm font-semibold transition",
+    active
+      ? "bg-white text-[#111111] shadow-[0_1px_5px_rgba(17,17,17,0.12)]"
+      : "text-[#777777] hover:text-[#111111]",
+  ].join(" ");
+}
 
 function filterButtonClass(active: boolean) {
   return [

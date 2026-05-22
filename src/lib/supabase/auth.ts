@@ -1,4 +1,4 @@
-import { User } from "@supabase/supabase-js";
+import { SupabaseClient, User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export class AdminAuthError extends Error {
@@ -23,6 +23,10 @@ export async function getCurrentAdminUser() {
     "Supabase Auth did not respond while checking the session.",
   );
   if (error) {
+    return null;
+  }
+
+  if (!data.user || !(await hasAdminAccess(supabase, data.user.id))) {
     return null;
   }
 
@@ -70,7 +74,67 @@ export async function signInAdmin(email: string, password: string) {
     throw new AdminAuthError("access_unavailable");
   }
 
+  if (!(await hasAdminAccess(supabase, data.user.id))) {
+    await supabase.auth.signOut();
+    throw new AdminAuthError("invalid_credentials");
+  }
+
   return data.user as User;
+}
+
+export async function signUpAccount(input: {
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+}) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  const { data, error } = await withTimeout(
+    supabase.auth.signUp({
+      email: input.email,
+      password: input.password,
+      options: {
+        data: {
+          first_name: input.firstName,
+          last_name: input.lastName,
+        },
+      },
+    }),
+    "Supabase Auth did not respond while signing up.",
+  );
+
+  if (error || !data.user) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  return data.user as User;
+}
+
+async function hasAdminAccess(supabase: SupabaseClient, userId: string) {
+  const response = await withTimeout(
+    Promise.resolve(
+      supabase
+        .from("admin_users")
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle(),
+    ),
+    "Supabase Auth did not respond while checking admin permissions.",
+  );
+  const { data, error } = response as {
+    data: { user_id: string } | null;
+    error: { message: string } | null;
+  };
+
+  if (error) {
+    return false;
+  }
+
+  return Boolean(data);
 }
 
 export async function signOutAdmin() {
