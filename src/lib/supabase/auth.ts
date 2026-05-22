@@ -114,6 +114,121 @@ export async function signUpAccount(input: {
   return data.user as User;
 }
 
+export async function verifySignupCode(email: string, code: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  const { error } = await withTimeout(
+    supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "signup",
+    }),
+    "Supabase Auth did not respond while verifying signup.",
+  );
+
+  if (error) {
+    throw new AdminAuthError("invalid_credentials");
+  }
+}
+
+export async function resendSignupCode(email: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  const { error } = await withTimeout(
+    supabase.auth.resend({
+      email,
+      type: "signup",
+    }),
+    "Supabase Auth did not respond while resending signup.",
+  );
+
+  if (error) {
+    throw new AdminAuthError("access_unavailable");
+  }
+}
+
+export async function sendPasswordRecovery(email: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  const { error } = await withTimeout(
+    supabase.auth.resetPasswordForEmail(email),
+    "Supabase Auth did not respond while sending recovery.",
+  );
+
+  if (error) {
+    throw new AdminAuthError("access_unavailable");
+  }
+}
+
+export async function verifyRecoveryCode(email: string, code: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  const { error } = await withTimeout(
+    supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "recovery",
+    }),
+    "Supabase Auth did not respond while verifying recovery.",
+  );
+
+  if (error) {
+    throw new AdminAuthError("invalid_credentials");
+  }
+}
+
+export async function updateAccountPassword(password: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  const { error } = await withTimeout(
+    supabase.auth.updateUser({ password }),
+    "Supabase Auth did not respond while updating password.",
+  );
+
+  if (error) {
+    throw new AdminAuthError("access_unavailable");
+  }
+}
+
+export async function signInWithGoogle() {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  const redirectTo =
+    typeof window === "undefined" ? undefined : `${window.location.origin}/admin`;
+
+  const { error } = await withTimeout(
+    supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+      },
+    }),
+    "Supabase Auth did not respond while signing in with Google.",
+  );
+
+  if (error) {
+    throw new AdminAuthError("access_unavailable");
+  }
+}
+
 async function hasAdminAccess(supabase: SupabaseClient, userId: string) {
   const response = await withTimeout(
     Promise.resolve(

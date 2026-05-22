@@ -31,9 +31,15 @@ import {
 import {
   AdminAuthError,
   getCurrentAdminUser,
+  resendSignupCode,
+  sendPasswordRecovery,
   signInAdmin,
+  signInWithGoogle,
   signOutAdmin,
   signUpAccount,
+  updateAccountPassword,
+  verifyRecoveryCode,
+  verifySignupCode,
 } from "@/lib/supabase/auth";
 import {
   notifyAppointmentRequested,
@@ -446,11 +452,103 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         password: input.password,
       });
       setNotice(t.registerSuccess);
+      return true;
     } catch (error) {
       logTechnicalError(error);
       setNotice(t.registerError);
+      return false;
     } finally {
       setIsLoadingAdmin(false);
+    }
+  }
+
+  async function handleVerifySignup(email: string, code: string) {
+    setIsLoadingAdmin(true);
+    try {
+      await verifySignupCode(email.trim(), code.trim());
+      await signOutAdmin();
+      setNotice(t.emailVerified);
+      return true;
+    } catch (error) {
+      logTechnicalError(error);
+      setNotice(t.codeVerificationError);
+      return false;
+    } finally {
+      setIsLoadingAdmin(false);
+    }
+  }
+
+  async function handleResendSignup(email: string) {
+    setIsLoadingAdmin(true);
+    try {
+      await resendSignupCode(email.trim());
+      setNotice(t.codeResent);
+      return true;
+    } catch (error) {
+      logTechnicalError(error);
+      setNotice(t.codeResendError);
+      return false;
+    } finally {
+      setIsLoadingAdmin(false);
+    }
+  }
+
+  async function handleSendRecovery(email: string) {
+    setIsLoadingAdmin(true);
+    try {
+      await sendPasswordRecovery(email.trim());
+      setNotice(t.recoveryCodeSent);
+      return true;
+    } catch (error) {
+      logTechnicalError(error);
+      setNotice(t.recoveryError);
+      return false;
+    } finally {
+      setIsLoadingAdmin(false);
+    }
+  }
+
+  async function handleVerifyRecovery(email: string, code: string) {
+    setIsLoadingAdmin(true);
+    try {
+      await verifyRecoveryCode(email.trim(), code.trim());
+      setNotice(t.recoveryCodeVerified);
+      return true;
+    } catch (error) {
+      logTechnicalError(error);
+      setNotice(t.codeVerificationError);
+      return false;
+    } finally {
+      setIsLoadingAdmin(false);
+    }
+  }
+
+  async function handleUpdatePassword(password: string) {
+    setIsLoadingAdmin(true);
+    try {
+      await updateAccountPassword(password);
+      await signOutAdmin();
+      setNotice(t.passwordUpdated);
+      return true;
+    } catch (error) {
+      logTechnicalError(error);
+      setNotice(t.passwordUpdateError);
+      return false;
+    } finally {
+      setIsLoadingAdmin(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setIsLoadingAdmin(true);
+    try {
+      await signInWithGoogle();
+      return true;
+    } catch (error) {
+      logTechnicalError(error);
+      setNotice(t.googleLoginError);
+      setIsLoadingAdmin(false);
+      return false;
     }
   }
 
@@ -681,6 +779,12 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
               notice={adminNotice}
               onLogin={handleAdminLogin}
               onRegister={handleAccountRegister}
+              onResendSignup={handleResendSignup}
+              onSendRecovery={handleSendRecovery}
+              onUpdatePassword={handleUpdatePassword}
+              onVerifyRecovery={handleVerifyRecovery}
+              onVerifySignup={handleVerifySignup}
+              onGoogleLogin={handleGoogleLogin}
               onLogout={handleAdminLogout}
               onRefresh={loadAdminData}
               onCreateBlock={handleCreateBlock}
@@ -1400,6 +1504,12 @@ function AdminPanel({
   notice,
   onLogin,
   onRegister,
+  onResendSignup,
+  onSendRecovery,
+  onUpdatePassword,
+  onVerifyRecovery,
+  onVerifySignup,
+  onGoogleLogin,
   onLogout,
   onRefresh,
   onCreateBlock,
@@ -1420,7 +1530,13 @@ function AdminPanel({
     lastName: string;
     email: string;
     password: string;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
+  onResendSignup: (email: string) => Promise<boolean>;
+  onSendRecovery: (email: string) => Promise<boolean>;
+  onUpdatePassword: (password: string) => Promise<boolean>;
+  onVerifyRecovery: (email: string, code: string) => Promise<boolean>;
+  onVerifySignup: (email: string, code: string) => Promise<boolean>;
+  onGoogleLogin: () => Promise<boolean>;
   onLogout: () => Promise<void>;
   onRefresh: () => Promise<void>;
   onCreateBlock: (input: {
@@ -1491,6 +1607,12 @@ function AdminPanel({
         t={t}
         onLogin={onLogin}
         onRegister={onRegister}
+        onResendSignup={onResendSignup}
+        onSendRecovery={onSendRecovery}
+        onUpdatePassword={onUpdatePassword}
+        onVerifyRecovery={onVerifyRecovery}
+        onVerifySignup={onVerifySignup}
+        onGoogleLogin={onGoogleLogin}
       />
     );
   }
@@ -2410,6 +2532,12 @@ function AdminLogin({
   t,
   onLogin,
   onRegister,
+  onResendSignup,
+  onSendRecovery,
+  onUpdatePassword,
+  onVerifyRecovery,
+  onVerifySignup,
+  onGoogleLogin,
 }: {
   isLoading: boolean;
   notice: string;
@@ -2420,9 +2548,17 @@ function AdminLogin({
     lastName: string;
     email: string;
     password: string;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
+  onResendSignup: (email: string) => Promise<boolean>;
+  onSendRecovery: (email: string) => Promise<boolean>;
+  onUpdatePassword: (password: string) => Promise<boolean>;
+  onVerifyRecovery: (email: string, code: string) => Promise<boolean>;
+  onVerifySignup: (email: string, code: string) => Promise<boolean>;
+  onGoogleLogin: () => Promise<boolean>;
 }) {
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<
+    "login" | "register" | "verifySignup" | "recover" | "verifyRecovery" | "resetPassword"
+  >("login");
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [registration, setRegistration] = useState({
     firstName: "",
@@ -2430,8 +2566,12 @@ function AdminLogin({
     email: "",
     password: "",
   });
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
-  function submitAuth(event: React.FormEvent<HTMLFormElement>) {
+  async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (authMode === "login") {
@@ -2439,8 +2579,66 @@ function AdminLogin({
       return;
     }
 
-    void onRegister(registration);
+    if (authMode === "register") {
+      const registered = await onRegister(registration);
+      if (registered) {
+        setPendingEmail(registration.email.trim());
+        setVerificationCode("");
+        setAuthMode("verifySignup");
+      }
+      return;
+    }
+
+    if (authMode === "verifySignup") {
+      const verified = await onVerifySignup(pendingEmail, verificationCode);
+      if (verified) {
+        setCredentials((current) => ({ ...current, email: pendingEmail }));
+        setAuthMode("login");
+      }
+      return;
+    }
+
+    if (authMode === "recover") {
+      const sent = await onSendRecovery(recoveryEmail);
+      if (sent) {
+        setPendingEmail(recoveryEmail.trim());
+        setVerificationCode("");
+        setAuthMode("verifyRecovery");
+      }
+      return;
+    }
+
+    if (authMode === "verifyRecovery") {
+      const verified = await onVerifyRecovery(pendingEmail, verificationCode);
+      if (verified) {
+        setNewPassword("");
+        setAuthMode("resetPassword");
+      }
+      return;
+    }
+
+    if (authMode === "resetPassword") {
+      const updated = await onUpdatePassword(newPassword);
+      if (updated) {
+        setCredentials((current) => ({ ...current, email: pendingEmail }));
+        setAuthMode("login");
+      }
+    }
   }
+
+  const isCodeMode = authMode === "verifySignup" || authMode === "verifyRecovery";
+  const title =
+    authMode === "register"
+      ? t.createAccountTitle
+      : authMode === "verifySignup"
+        ? t.codeSentTitle
+        : authMode === "recover"
+          ? t.forgotPassword
+          : authMode === "verifyRecovery"
+            ? t.recoveryCodeTitle
+            : authMode === "resetPassword"
+              ? t.newPasswordTitle
+              : t.signInTitle;
 
   return (
     <form
@@ -2449,27 +2647,44 @@ function AdminLogin({
     >
       <div className="text-center">
         <p className="text-xl font-bold tracking-[0.08em]">MM</p>
-        <h1 className="mt-5 text-2xl font-semibold">
-          {authMode === "login" ? t.signInTitle : t.createAccountTitle}
-        </h1>
+        <h1 className="mt-5 text-2xl font-semibold">{title}</h1>
+        {isCodeMode ? (
+          <p className="mt-2 text-sm text-[#666666]">
+            {t.enterCodeFor.replace("{email}", pendingEmail)}
+          </p>
+        ) : null}
       </div>
 
-      <div className="grid grid-cols-2 rounded-md bg-[#f0f0f0] p-1">
+      {authMode === "login" || authMode === "register" ? (
+        <div className="grid grid-cols-2 rounded-md bg-[#f0f0f0] p-1">
+          <button
+            type="button"
+            onClick={() => setAuthMode("login")}
+            className={authModeTabClass(authMode === "login")}
+          >
+            {t.login}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAuthMode("register")}
+            className={authModeTabClass(authMode === "register")}
+          >
+            {t.register}
+          </button>
+        </div>
+      ) : null}
+
+      {authMode === "login" ? (
         <button
           type="button"
-          onClick={() => setAuthMode("login")}
-          className={authModeTabClass(authMode === "login")}
+          onClick={() => void onGoogleLogin()}
+          disabled={isLoading}
+          className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-[#d7d7d7] bg-white text-sm font-semibold text-[#333333] transition hover:bg-[#f7f7f7] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {t.login}
+          <span className="text-base font-bold text-[#4285f4]">G</span>
+          {t.continueWithGoogle}
         </button>
-        <button
-          type="button"
-          onClick={() => setAuthMode("register")}
-          className={authModeTabClass(authMode === "register")}
-        >
-          {t.register}
-        </button>
-      </div>
+      ) : null}
 
       {authMode === "register" ? (
         <div className="grid gap-3">
@@ -2505,7 +2720,9 @@ function AdminLogin({
             }
           />
         </div>
-      ) : (
+      ) : null}
+
+      {authMode === "login" ? (
         <div className="grid gap-3">
           <AuthInput
             label={t.email}
@@ -2523,8 +2740,73 @@ function AdminLogin({
               setCredentials((current) => ({ ...current, password: value }))
             }
           />
+          <button
+            type="button"
+            onClick={() => {
+              setRecoveryEmail(credentials.email);
+              setAuthMode("recover");
+            }}
+            className="w-fit cursor-pointer justify-self-end text-sm font-medium text-[#111111] underline-offset-4 hover:underline"
+          >
+            {t.forgotPassword}
+          </button>
         </div>
-      )}
+      ) : null}
+
+      {isCodeMode ? (
+        <div className="grid gap-3">
+          <AuthInput
+            label={t.verificationCode}
+            value={verificationCode}
+            inputMode="numeric"
+            maxLength={8}
+            onChange={(value) => setVerificationCode(value.replace(/\D/g, ""))}
+          />
+          <div className="flex flex-col gap-2 text-center text-sm sm:flex-row sm:items-center sm:justify-center">
+            <span className="text-[#666666]">{t.didNotGetCode}</span>
+            <button
+              type="button"
+              onClick={() =>
+                void (authMode === "verifySignup"
+                  ? onResendSignup(pendingEmail)
+                  : onSendRecovery(pendingEmail))
+              }
+              className="cursor-pointer font-semibold text-[#111111] underline-offset-4 hover:underline"
+            >
+              {t.resendCode}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setVerificationCode("");
+                setAuthMode(authMode === "verifySignup" ? "register" : "recover");
+              }}
+              className="cursor-pointer font-semibold text-[#111111] underline-offset-4 hover:underline"
+            >
+              {t.useDifferentEmail}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {authMode === "recover" ? (
+        <AuthInput
+          label={t.email}
+          type="email"
+          value={recoveryEmail}
+          onChange={setRecoveryEmail}
+        />
+      ) : null}
+
+      {authMode === "resetPassword" ? (
+        <AuthInput
+          label={t.newPassword}
+          type="password"
+          value={newPassword}
+          minLength={6}
+          onChange={setNewPassword}
+        />
+      ) : null}
 
       {notice ? (
         <p className="rounded-md border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-center text-sm text-[#4b4b4b]">
@@ -2534,24 +2816,44 @@ function AdminLogin({
 
       <button
         type="submit"
-        disabled={isLoading}
+        disabled={isLoading || (isCodeMode && verificationCode.length < 4)}
         className="h-12 cursor-pointer rounded-md bg-[#111111] px-4 text-sm font-bold uppercase tracking-[0.08em] text-white transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
       >
-        {isLoading ? t.loading : authMode === "login" ? t.login : t.signUp}
+        {isLoading
+          ? t.loading
+          : authMode === "login"
+            ? t.login
+            : authMode === "register"
+              ? t.signUp
+              : authMode === "recover"
+                ? t.sendCode
+                : authMode === "resetPassword"
+                  ? t.savePassword
+                  : t.next}
       </button>
 
-      <p className="text-center text-sm text-[#6b6b6b]">
-        {authMode === "login" ? t.noAccount : t.alreadyAccount}{" "}
+      {authMode === "login" || authMode === "register" ? (
+        <p className="text-center text-sm text-[#6b6b6b]">
+          {authMode === "login" ? t.noAccount : t.alreadyAccount}{" "}
+          <button
+            type="button"
+            onClick={() =>
+              setAuthMode((current) => (current === "login" ? "register" : "login"))
+            }
+            className="cursor-pointer font-semibold text-[#111111] underline-offset-4 hover:underline"
+          >
+            {authMode === "login" ? t.register : t.login}
+          </button>
+        </p>
+      ) : (
         <button
           type="button"
-          onClick={() =>
-            setAuthMode((current) => (current === "login" ? "register" : "login"))
-          }
-          className="cursor-pointer font-semibold text-[#111111] underline-offset-4 hover:underline"
+          onClick={() => setAuthMode("login")}
+          className="cursor-pointer text-sm font-semibold text-[#111111] underline-offset-4 hover:underline"
         >
-          {authMode === "login" ? t.register : t.login}
+          {t.backToLogin}
         </button>
-      </p>
+      )}
     </form>
   );
 }
@@ -2560,12 +2862,16 @@ function AuthInput({
   label,
   type = "text",
   value,
+  inputMode,
+  maxLength,
   minLength,
   onChange,
 }: {
   label: string;
   type?: "text" | "email" | "password";
   value: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
   minLength?: number;
   onChange: (value: string) => void;
 }) {
@@ -2576,6 +2882,8 @@ function AuthInput({
         required
         type={type}
         value={value}
+        inputMode={inputMode}
+        maxLength={maxLength}
         minLength={minLength}
         onChange={(event) => onChange(event.target.value)}
         className="h-12 rounded-md border border-[#d7d7d7] bg-[#eef4ff] px-3 text-base text-[#111111] outline-none transition focus:border-[#111111] focus:bg-white focus:ring-2 focus:ring-[#111111]/10"
