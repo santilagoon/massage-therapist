@@ -46,6 +46,10 @@ Model the screen as explicit states rather than separate pages when possible:
 - Verify recovery code with `supabase.auth.verifyOtp({ email, token, type: "recovery" })`.
 - Save the new password with `supabase.auth.updateUser({ password })` after recovery verification.
 - Start Google login with `supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo } })`.
+- Supabase's default Auth emails may show Supabase branding and send links. For a code-entry UX, customize the Supabase Auth email templates to show `{{ .Token }}` and avoid relying only on `{{ .ConfirmationURL }}`.
+- To brand the sender, configure custom SMTP in Supabase Auth, usually through a verified email domain/provider such as Resend SMTP. Otherwise users can see the default Supabase sender.
+- Configure Supabase Auth Site URL and Redirect URLs for both production/custom domain and localhost. Wrong redirect settings can send users to `localhost` after clicking an Auth email link.
+- Google OAuth must be enabled in Supabase Auth Providers with Google Client ID/Secret and the Supabase callback URL configured in Google Cloud. This is not solved by adding a Vercel environment variable.
 
 ## Role Safety
 
@@ -53,16 +57,18 @@ Model the screen as explicit states rather than separate pages when possible:
 - Do not grant admin access just because a user can log in.
 - After login or OAuth, check app-specific authorization such as an `admin_users` table.
 - If a logged-in user lacks admin access, sign them out or redirect to the client area.
+- Password recovery should not reveal whether an email exists. Use generic copy such as "Si el email está registrado, vas a recibir un código" to avoid account enumeration.
 
 ## UX Copy
 
 - Spanish examples:
-  - `Te enviamos un código`
+  - `Revisá tu email`
   - `Ingresalo abajo para verificar {email}.`
   - `Reenviar código`
   - `Usar otro email`
   - `Olvidé mi contraseña`
   - `Continuar con Google`
+  - `Si el email está registrado, vas a recibir un código para recuperar la contraseña.`
 - Error wording should be generic and useful:
   - `No se pudo completar la acción. Intentá nuevamente.`
   - `El código no es válido o venció. Intentá nuevamente.`
