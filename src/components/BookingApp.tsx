@@ -261,12 +261,10 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
 
       setAdminUser(admin);
 
-      const isOAuthReturn =
-        isAdminPage && window.location.hash.includes("access_token");
-      if (!admin && isOAuthReturn) {
+      if (isAdminPage && !admin) {
         const account = await getCurrentUser();
         if (!cancelled && account) {
-          window.location.href = "/cuenta";
+          window.location.replace("/cuenta");
         }
       }
     }
@@ -1839,9 +1837,9 @@ function AdminDashboard({
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <AdminStat label={t.dayAppointments} value={selectedDateActive.length} />
         <AdminStat label={t.todayConfirmed} value={selectedDateConfirmed.length} />
         <AdminStat label={t.todayPending} value={selectedDatePending.length} />
+        <AdminStat label={t.dayAppointments} value={selectedDateActive.length} />
       </div>
 
       <AdminAgenda
