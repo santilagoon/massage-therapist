@@ -26,10 +26,10 @@ The business rule is that appointments are not instantly confirmed. A patient su
 Current local folder:
 
 ```txt
-/Users/santiagohernanlaguna/Documents/Codex/2026-05-11/booking-app
+/Users/santiagohernanlaguna/Documents/Codex/booking-app
 ```
 
-The previous local folder name was `i-would-like-to-create-a`. Use `booking-app` for future local commands and references.
+Use this folder for future local commands and references. Older generated folder names should be ignored.
 
 ## Tech Stack
 
