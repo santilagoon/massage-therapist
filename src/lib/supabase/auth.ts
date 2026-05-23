@@ -33,6 +33,24 @@ export async function getCurrentAdminUser() {
   return data.user;
 }
 
+export async function getCurrentUser() {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await withTimeout(
+    supabase.auth.getUser(),
+    "Supabase Auth did not respond while checking the session.",
+  );
+
+  if (error || !data.user) {
+    return null;
+  }
+
+  return data.user;
+}
+
 export async function signInAdmin(email: string, password: string) {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) {
@@ -77,6 +95,50 @@ export async function signInAdmin(email: string, password: string) {
   if (!(await hasAdminAccess(supabase, data.user.id))) {
     await supabase.auth.signOut();
     throw new AdminAuthError("invalid_credentials");
+  }
+
+  return data.user as User;
+}
+
+export async function signInAccount(email: string, password: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  const { data, error } = await withTimeout(
+    supabase.auth.signInWithPassword({
+      email,
+      password,
+    }),
+    "Supabase Auth did not respond while signing in.",
+  );
+
+  if (error) {
+    const normalizedMessage = error.message.toLowerCase();
+    const errorCode =
+      "code" in error && typeof error.code === "string" ? error.code : "";
+
+    if (
+      errorCode === "email_not_confirmed" ||
+      normalizedMessage.includes("email not confirmed")
+    ) {
+      throw new AdminAuthError("account_not_confirmed");
+    }
+
+    if (
+      errorCode === "invalid_credentials" ||
+      normalizedMessage.includes("invalid login credentials") ||
+      normalizedMessage.includes("invalid credentials")
+    ) {
+      throw new AdminAuthError("invalid_credentials");
+    }
+
+    throw new AdminAuthError("access_unavailable");
+  }
+
+  if (!data.user) {
+    throw new AdminAuthError("access_unavailable");
   }
 
   return data.user as User;
@@ -205,14 +267,14 @@ export async function updateAccountPassword(password: string) {
   }
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(redirectPath = "/cuenta") {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) {
     throw new AdminAuthError("access_unavailable");
   }
 
   const redirectTo =
-    typeof window === "undefined" ? undefined : `${window.location.origin}/admin`;
+    typeof window === "undefined" ? undefined : `${window.location.origin}${redirectPath}`;
 
   const { error } = await withTimeout(
     supabase.auth.signInWithOAuth({
@@ -263,6 +325,8 @@ export async function signOutAdmin() {
     "Supabase Auth did not respond while signing out.",
   );
 }
+
+export const signOutAccount = signOutAdmin;
 
 function withTimeout<T>(promise: Promise<T>, message: string, timeoutMs = 12_000) {
   return Promise.race([

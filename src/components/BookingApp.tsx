@@ -31,6 +31,7 @@ import {
 import {
   AdminAuthError,
   getCurrentAdminUser,
+  getCurrentUser,
   resendSignupCode,
   sendPasswordRecovery,
   signInAdmin,
@@ -253,9 +254,20 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         return;
       }
 
-      const user = await getCurrentAdminUser();
-      if (!cancelled) {
-        setAdminUser(user);
+      const admin = await getCurrentAdminUser();
+      if (cancelled) {
+        return;
+      }
+
+      setAdminUser(admin);
+
+      const isOAuthReturn =
+        isAdminPage && window.location.hash.includes("access_token");
+      if (!admin && isOAuthReturn) {
+        const account = await getCurrentUser();
+        if (!cancelled && account) {
+          window.location.href = "/cuenta";
+        }
       }
     }
 
@@ -264,7 +276,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAdminPage]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -542,7 +554,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   async function handleGoogleLogin() {
     setIsLoadingAdmin(true);
     try {
-      await signInWithGoogle();
+      await signInWithGoogle("/cuenta");
       return true;
     } catch (error) {
       logTechnicalError(error);
@@ -583,7 +595,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       return;
     }
 
-    window.location.href = "/admin";
+    window.location.href = isAdminPage ? "/admin" : "/cuenta";
   }
 
   async function logoutFromUserMenu() {
@@ -1601,9 +1613,11 @@ function AdminPanel({
 
   if (!adminUser) {
     return (
-      <AdminLogin
+      <AuthPanel
+        allowRegistration={false}
         isLoading={isLoading}
         notice={notice}
+        showGoogle={false}
         t={t}
         onLogin={onLogin}
         onRegister={onRegister}
@@ -2526,9 +2540,11 @@ function AdminStat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function AdminLogin({
+export function AuthPanel({
+  allowRegistration = true,
   isLoading,
   notice,
+  showGoogle = true,
   t,
   onLogin,
   onRegister,
@@ -2539,8 +2555,10 @@ function AdminLogin({
   onVerifySignup,
   onGoogleLogin,
 }: {
+  allowRegistration?: boolean;
   isLoading: boolean;
   notice: string;
+  showGoogle?: boolean;
   t: Record<string, string>;
   onLogin: (email: string, password: string) => Promise<void>;
   onRegister: (input: {
@@ -2580,6 +2598,10 @@ function AdminLogin({
     }
 
     if (authMode === "register") {
+      if (!allowRegistration) {
+        return;
+      }
+
       const registered = await onRegister(registration);
       if (registered) {
         setPendingEmail(registration.email.trim());
@@ -2655,7 +2677,7 @@ function AdminLogin({
         ) : null}
       </div>
 
-      {authMode === "login" || authMode === "register" ? (
+      {allowRegistration && (authMode === "login" || authMode === "register") ? (
         <div className="grid grid-cols-2 rounded-md bg-[#f0f0f0] p-1">
           <button
             type="button"
@@ -2674,7 +2696,7 @@ function AdminLogin({
         </div>
       ) : null}
 
-      {authMode === "login" ? (
+      {authMode === "login" && showGoogle ? (
         <button
           type="button"
           onClick={() => void onGoogleLogin()}
@@ -2686,7 +2708,7 @@ function AdminLogin({
         </button>
       ) : null}
 
-      {authMode === "register" ? (
+      {allowRegistration && authMode === "register" ? (
         <div className="grid gap-3">
           <AuthInput
             label={t.firstName}
@@ -2832,7 +2854,7 @@ function AdminLogin({
                   : t.next}
       </button>
 
-      {authMode === "login" || authMode === "register" ? (
+      {allowRegistration && (authMode === "login" || authMode === "register") ? (
         <p className="text-center text-sm text-[#6b6b6b]">
           {authMode === "login" ? t.noAccount : t.alreadyAccount}{" "}
           <button

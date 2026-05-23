@@ -36,6 +36,8 @@ Model the screen as explicit states rather than separate pages when possible:
 - Password recovery sends a recovery code or recovery link depending on provider configuration.
 - Recovery verification should allow the user to set a new password.
 - Google login should be present when enabled, but the app must still enforce role permissions after OAuth succeeds.
+- Client social login should redirect to the client portal/account area, not to the admin dashboard.
+- If OAuth ever lands on an admin URL because of provider/Site URL configuration, detect the authenticated non-admin account and immediately redirect it to the client portal.
 
 ## Supabase Auth Pattern
 
@@ -58,6 +60,7 @@ Model the screen as explicit states rather than separate pages when possible:
 - After login or OAuth, check app-specific authorization such as an `admin_users` table.
 - If a logged-in user lacks admin access, sign them out or redirect to the client area.
 - Password recovery should not reveal whether an email exists. Use generic copy such as "Si el email está registrado, vas a recibir un código" to avoid account enumeration.
+- Keep admin and client destinations separate. Public user icons and Google login should go to a client portal such as `/cuenta`; `/admin` should remain a protected professional-only surface.
 
 ## UX Copy
 

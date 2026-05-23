@@ -45,6 +45,8 @@ export type PublicAppointment = Appointment & {
   serviceTitle: string;
 };
 
+export type ClientAppointment = PublicAppointment;
+
 type PublicAppointmentRow = {
   id: string;
   public_token: string;
@@ -209,6 +211,47 @@ export async function cancelPublicAppointment(token: string) {
 
   const { data, error } = await withTimeout(
     supabase.rpc("cancel_public_appointment", { appointment_token: token }),
+    "Supabase did not respond while cancelling the appointment.",
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = ((data ?? []) as PublicAppointmentRow[])[0];
+  if (!row) {
+    return null;
+  }
+
+  return mapPublicAppointmentRow(row);
+}
+
+export async function loadClientAppointments() {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await withTimeout(
+    supabase.rpc("get_my_appointments"),
+    "Supabase did not respond while loading client appointments.",
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as PublicAppointmentRow[]).map(mapPublicAppointmentRow);
+}
+
+export async function cancelClientAppointment(id: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { data, error } = await withTimeout(
+    supabase.rpc("cancel_my_appointment", { appointment_id: id }),
     "Supabase did not respond while cancelling the appointment.",
   );
 
