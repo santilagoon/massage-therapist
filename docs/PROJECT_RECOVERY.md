@@ -21,6 +21,16 @@ The business rule is that appointments are not instantly confirmed. A patient su
 - Admin panel: `https://massage-therapist-tau.vercel.app/admin`
 - Client portal: `https://massage-therapist-tau.vercel.app/cuenta`
 
+## Local Project Path
+
+Current local folder:
+
+```txt
+/Users/santiagohernanlaguna/Documents/Codex/2026-05-11/booking-app
+```
+
+The previous local folder name was `i-would-like-to-create-a`. Use `booking-app` for future local commands and references.
+
 ## Tech Stack
 
 - Frontend and app routes: Next.js App Router
