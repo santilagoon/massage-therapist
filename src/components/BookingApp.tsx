@@ -632,7 +632,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       return;
     }
 
-    window.location.href = "/admin";
+    window.location.href = "/cuenta";
   }
 
   async function logoutFromUserMenu() {
