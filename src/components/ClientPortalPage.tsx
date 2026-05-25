@@ -146,7 +146,7 @@ export function ClientPortalPage() {
       if (currentUser) {
         await refreshAppointments();
       }
-      setNotice(t.emailVerified);
+      setNotice("");
       return true;
     } catch (error) {
       logPortalError(error);
