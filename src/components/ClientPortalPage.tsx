@@ -12,6 +12,7 @@ import {
 } from "@/lib/supabase/bookings";
 import {
   AdminAuthError,
+  getCurrentAdminUser,
   getCurrentUser,
   resendSignupCode,
   sendPasswordRecovery,
@@ -52,6 +53,13 @@ export function ClientPortalPage() {
           return;
         }
 
+        if (currentUser && (await getCurrentAdminUser())) {
+          if (!cancelled) {
+            window.location.replace("/admin");
+          }
+          return;
+        }
+
         setUser(currentUser);
         if (currentUser) {
           await refreshAppointments();
@@ -89,6 +97,11 @@ export function ClientPortalPage() {
     setNotice("");
     try {
       const signedInUser = await signInAccount(email.trim(), password);
+      if (await getCurrentAdminUser()) {
+        window.location.replace("/admin");
+        return;
+      }
+
       setUser(signedInUser);
       await refreshAppointments();
     } catch (error) {

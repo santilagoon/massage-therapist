@@ -1,18 +1,39 @@
 import { NextResponse } from "next/server";
 import { getEmailConfig, sendEmail } from "@/lib/email/resend";
 import { patientStatusEmail } from "@/lib/email/templates";
-import { AppointmentStatusEmailPayload } from "@/lib/email/types";
+import {
+  readNotificationInput,
+  verifyNotificationAppointment,
+} from "@/lib/notifications/server";
 
 export async function POST(request: Request) {
-  const payload = (await request.json()) as AppointmentStatusEmailPayload;
-  const config = getEmailConfig();
+  const input = await readNotificationInput(request);
+  if (!input?.status) {
+    return NextResponse.json(
+      { ok: false, error: "Invalid notification request." },
+      { status: 400 },
+    );
+  }
 
+  const config = getEmailConfig();
   if (!config.isConfigured) {
     return NextResponse.json(
       { ok: false, error: "Email notifications are unavailable." },
       { status: 503 },
     );
   }
+
+  const verified = await verifyNotificationAppointment(
+    request,
+    input,
+    input.status,
+    `status:${input.status}`,
+  );
+  if ("response" in verified) {
+    return verified.response;
+  }
+
+  const payload = { ...verified.payload, status: input.status };
 
   const email = patientStatusEmail(payload);
 

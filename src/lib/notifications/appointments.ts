@@ -1,62 +1,34 @@
-import { Appointment, AppointmentStatus, Locale, Service } from "@/lib/booking";
+import { Appointment, AppointmentStatus } from "@/lib/booking";
 import type { PublicAppointment } from "@/lib/supabase/bookings";
 
-export async function notifyAppointmentRequested(
-  appointment: Appointment,
-  service: Service,
-  locale: Locale,
-) {
+export async function notifyAppointmentRequested(appointment: Appointment) {
   await postNotification("/api/notifications/appointment-requested", {
-    appointmentUrl: appointment.publicToken
-      ? `${window.location.origin}/reserva/${appointment.publicToken}`
-      : undefined,
-    patientName: appointment.patientName,
-    patientEmail: appointment.patientEmail,
-    patientPhone: appointment.patientPhone,
-    language: locale,
-    serviceTitle: service.title[locale],
-    startsAt: appointment.startsAt,
-    endsAt: appointment.endsAt,
-    notes: appointment.notes,
+    appointmentToken: requireAppointmentToken(appointment.publicToken),
   });
 }
 
 export async function notifyAppointmentStatus(
   appointment: Appointment,
-  service: Service,
-  locale: Locale,
   status: Extract<AppointmentStatus, "confirmed" | "declined">,
 ) {
   await postNotification("/api/notifications/appointment-status", {
-    appointmentUrl: appointment.publicToken
-      ? `${window.location.origin}/reserva/${appointment.publicToken}`
-      : undefined,
-    patientName: appointment.patientName,
-    patientEmail: appointment.patientEmail,
-    patientPhone: appointment.patientPhone,
-    language: appointment.language,
-    serviceTitle: service.title[appointment.language] ?? service.title[locale],
-    startsAt: appointment.startsAt,
-    endsAt: appointment.endsAt,
-    notes: appointment.notes,
+    appointmentToken: requireAppointmentToken(appointment.publicToken),
     status,
   });
 }
 
 export async function notifyAppointmentCancelled(appointment: PublicAppointment) {
   await postNotification("/api/notifications/appointment-cancelled", {
-    appointmentUrl: appointment.publicToken
-      ? `${window.location.origin}/reserva/${appointment.publicToken}`
-      : undefined,
-    patientName: appointment.patientName,
-    patientEmail: appointment.patientEmail,
-    patientPhone: appointment.patientPhone,
-    language: appointment.language,
-    serviceTitle: appointment.serviceTitle,
-    startsAt: appointment.startsAt,
-    endsAt: appointment.endsAt,
-    notes: appointment.notes,
+    appointmentToken: requireAppointmentToken(appointment.publicToken),
   });
+}
+
+function requireAppointmentToken(token: string | undefined) {
+  if (!token) {
+    throw new Error("A verified appointment token is required for email notifications.");
+  }
+
+  return token;
 }
 
 async function postNotification(url: string, body: unknown) {
