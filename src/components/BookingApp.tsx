@@ -960,18 +960,29 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
             )}
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={openAdminAccess}
-                title={adminUser ? t.adminProfile : t.loginAdmin}
-                aria-label={adminUser ? t.adminProfile : t.loginAdmin}
-                className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
-              >
-                <UserIcon />
-                <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
-                  {adminUser ? t.adminProfile : t.loginAdmin}
-                </span>
-              </button>
+              {!adminUser && !isAdminPage ? (
+                <a
+                  href="/cuenta"
+                  title={t.loginAdmin}
+                  aria-label={t.loginAdmin}
+                  className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
+                >
+                  <UserIcon />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openAdminAccess}
+                  title={adminUser ? t.adminProfile : t.loginAdmin}
+                  aria-label={adminUser ? t.adminProfile : t.loginAdmin}
+                  className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
+                >
+                  <UserIcon />
+                  <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
+                    {adminUser ? t.adminProfile : t.loginAdmin}
+                  </span>
+                </button>
+              )}
               {!isAdminPage ? (
               <>
               <label className="sr-only" htmlFor="currency">
