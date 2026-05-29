@@ -21,6 +21,7 @@ export type AppointmentStatus =
 export type Appointment = {
   id: string;
   publicToken?: string;
+  requestId?: string;
   serviceId: string;
   startsAt: string;
   endsAt: string;
@@ -208,6 +209,15 @@ export const translations = {
     phoneRequired: "Ingresá un número de teléfono.",
     notesError: "Las notas deben tener entre 3 y 600 caracteres.",
     slotError: "Elegí un horario disponible.",
+    selectedSlots: "Turnos seleccionados",
+    removeSlot: "Quitar",
+    savedSlots: "Turnos guardados",
+    unavailableSlots: "Horarios no disponibles",
+    pricePerAppointment: "Precio por turno",
+    slotSelectionLimit: "Podés seleccionar hasta 12 turnos por solicitud.",
+    multiSlotHint: "Podés elegir horarios de distintos días para armar tu plan mensual.",
+    allSlotsUnavailable:
+      "Los horarios seleccionados ya no están disponibles. Elegí nuevos turnos.",
     formHasErrors: "Revisá los campos marcados antes de solicitar el turno.",
     request: "Solicitar pre-aprobacion",
     preApprovalSent: "Solicitud enviada",
@@ -253,6 +263,7 @@ export const translations = {
     todayPending: "Por confirmar",
     todayAvailable: "Horarios disponibles",
     requestsIntro: "Revisá primero las solicitudes pendientes y filtrá rápido por paciente o servicio.",
+    groupedRequest: "Solicitud agrupada",
     requestSearchPlaceholder: "Buscar solicitud...",
     servicesPending:
       "Vista inicial de servicios. La edición completa de precios y duración queda preparada para la próxima etapa.",
@@ -442,6 +453,15 @@ export const translations = {
     phoneRequired: "Enter a phone number.",
     notesError: "Notes must be between 3 and 600 characters.",
     slotError: "Choose an available time.",
+    selectedSlots: "Selected appointments",
+    removeSlot: "Remove",
+    savedSlots: "Saved appointments",
+    unavailableSlots: "Unavailable times",
+    pricePerAppointment: "Price per appointment",
+    slotSelectionLimit: "You can select up to 12 appointments per request.",
+    multiSlotHint: "You can pick times across different days to build your monthly plan.",
+    allSlotsUnavailable:
+      "The selected times are no longer available. Please choose new appointments.",
     formHasErrors: "Review the highlighted fields before requesting the appointment.",
     request: "Request pre-approval",
     preApprovalSent: "Request sent",
@@ -487,6 +507,7 @@ export const translations = {
     todayPending: "Pending",
     todayAvailable: "Available times",
     requestsIntro: "Review pending requests first and filter quickly by patient or service.",
+    groupedRequest: "Grouped request",
     requestSearchPlaceholder: "Search request...",
     servicesPending:
       "Initial services view. Full editing for prices and duration is prepared for the next stage.",
@@ -677,6 +698,15 @@ export const translations = {
     phoneRequired: "Введите номер телефона.",
     notesError: "Комментарий должен содержать от 3 до 600 символов.",
     slotError: "Выберите доступное время.",
+    selectedSlots: "Выбранные записи",
+    removeSlot: "Удалить",
+    savedSlots: "Сохраненные записи",
+    unavailableSlots: "Недоступное время",
+    pricePerAppointment: "Цена за сеанс",
+    slotSelectionLimit: "В одном запросе можно выбрать до 12 записей.",
+    multiSlotHint: "Вы можете выбрать время на разные дни и составить план на месяц.",
+    allSlotsUnavailable:
+      "Выбранное время больше недоступно. Выберите другие записи.",
     formHasErrors: "Проверьте отмеченные поля перед отправкой запроса.",
     request: "Запросить предварительное подтверждение",
     preApprovalSent: "Запрос отправлен",
@@ -722,6 +752,7 @@ export const translations = {
     todayPending: "Ожидают",
     todayAvailable: "Свободное время",
     requestsIntro: "Сначала проверьте ожидающие запросы и быстро фильтруйте по пациенту или услуге.",
+    groupedRequest: "Групповой запрос",
     requestSearchPlaceholder: "Поиск заявки...",
     servicesPending:
       "Начальный список услуг. Полное редактирование цен и длительности подготовим на следующем этапе.",

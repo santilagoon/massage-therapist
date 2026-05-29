@@ -15,3 +15,12 @@ export type EmailAppointmentPayload = {
 export type AppointmentStatusEmailPayload = EmailAppointmentPayload & {
   status: Extract<AppointmentStatus, "confirmed" | "declined">;
 };
+
+export type GroupedAppointmentEmailPayload = {
+  appointments: EmailAppointmentPayload[];
+  unavailableStartsAt: string[];
+  patientName: string;
+  patientEmail: string;
+  patientPhone?: string;
+  language: Locale;
+};

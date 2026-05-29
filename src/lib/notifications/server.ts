@@ -3,7 +3,7 @@ import "server-only";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import type { AppointmentStatus, Locale } from "@/lib/booking";
-import type { EmailAppointmentPayload } from "@/lib/email/types";
+import type { EmailAppointmentPayload, GroupedAppointmentEmailPayload } from "@/lib/email/types";
 
 type NotifiableStatus = Extract<
   AppointmentStatus,
@@ -24,14 +24,31 @@ type PublicAppointmentRow = {
   status: AppointmentStatus;
 };
 
+type PublicAppointmentRequestRow = PublicAppointmentRow & {
+  request_id: string;
+  request_public_token: string;
+  unavailable_starts_at: string[];
+};
+
+
 export type NotificationInput = {
   appointmentToken: string;
   status?: Extract<AppointmentStatus, "confirmed" | "declined">;
 };
 
+export type GroupNotificationInput = {
+  requestToken: string;
+};
+
+
 type VerificationResult =
   | { payload: EmailAppointmentPayload }
   | { response: NextResponse };
+
+type GroupVerificationResult =
+  | { payload: GroupedAppointmentEmailPayload }
+  | { response: NextResponse };
+
 
 type RateLimitWindow = {
   count: number;
@@ -84,6 +101,36 @@ export async function readNotificationInput(
     appointmentToken,
     status: status as NotificationInput["status"],
   };
+}
+
+/**
+ * Por que existe: limita las notificaciones de solicitudes multiples a un
+ * token de grupo generado por la base, sin aceptar emails enviados por cliente.
+ * @returns Un token de solicitud validado o `null`.
+ * Efectos secundarios: consume el body del request.
+ * Errores esperados: JSON invalido o token fuera del contrato.
+ */
+export async function readGroupNotificationInput(
+  request: Request,
+): Promise<GroupNotificationInput | null> {
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return null;
+  }
+
+  const requestToken =
+    body && typeof body === "object"
+      ? (body as Record<string, unknown>).requestToken
+      : undefined;
+
+  if (typeof requestToken !== "string" || !appointmentTokenPattern.test(requestToken)) {
+    return null;
+  }
+
+  return { requestToken };
 }
 
 /**
@@ -157,6 +204,85 @@ export async function verifyNotificationAppointment(
       startsAt: appointment.starts_at,
       endsAt: appointment.ends_at,
       notes: appointment.notes ?? "",
+    },
+  };
+}
+
+/**
+ * Por que existe: resuelve el resumen mensual en servidor desde el token no
+ * adivinable del grupo, evitando que el navegador pueda falsificar destinatarios.
+ * @returns El payload canonico del resumen o una respuesta HTTP segura.
+ * Efectos secundarios: consulta Supabase y reserva cupo del limite de envios.
+ * Errores esperados: token inexistente, grupo sin turnos guardados o abuso.
+ */
+export async function verifyGroupedAppointmentRequest(
+  request: Request,
+  input: GroupNotificationInput,
+): Promise<GroupVerificationResult> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return {
+      response: NextResponse.json(
+        { ok: false, error: "Appointment verification is unavailable." },
+        { status: 503 },
+      ),
+    };
+  }
+
+  const { data, error } = await client.rpc("get_public_appointment_request", {
+    request_token: input.requestToken,
+  });
+  if (error) {
+    console.error("Grouped appointment notification verification failed", error);
+    return {
+      response: NextResponse.json(
+        { ok: false, error: "Appointment verification is unavailable." },
+        { status: 503 },
+      ),
+    };
+  }
+
+  const rows = (data ?? []) as PublicAppointmentRequestRow[];
+  if (!rows.length || rows.some((row) => row.status !== "pending_approval")) {
+    return {
+      response: NextResponse.json(
+        { ok: false, error: "Appointment notification could not be verified." },
+        { status: 404 },
+      ),
+    };
+  }
+
+  const first = rows[0];
+  if (!claimSendAllowance(request, "requested-group", first.request_id)) {
+    return {
+      response: NextResponse.json(
+        { ok: false, error: "Too many notification requests." },
+        { status: 429, headers: { "Retry-After": "600" } },
+      ),
+    };
+  }
+
+  return {
+    payload: {
+      appointments: rows.map((row) => ({
+        appointmentUrl: new URL(
+          `/reserva/${encodeURIComponent(row.public_token)}`,
+          request.url,
+        ).toString(),
+        patientName: row.patient_name,
+        patientEmail: row.patient_email,
+        patientPhone: row.patient_phone ?? "",
+        language: asLocale(row.patient_language),
+        serviceTitle: row.service_title,
+        startsAt: row.starts_at,
+        endsAt: row.ends_at,
+        notes: row.notes ?? "",
+      })),
+      unavailableStartsAt: first.unavailable_starts_at ?? [],
+      patientName: first.patient_name,
+      patientEmail: first.patient_email,
+      patientPhone: first.patient_phone ?? "",
+      language: asLocale(first.patient_language),
     },
   };
 }

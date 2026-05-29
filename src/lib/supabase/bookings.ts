@@ -26,6 +26,7 @@ type BusyWindowRow = {
 type AppointmentRow = {
   id: string;
   public_token?: string | null;
+  request_id?: string | null;
   service_id: string;
   starts_at: string;
   ends_at: string;
@@ -36,6 +37,21 @@ type AppointmentRow = {
   notes: string | null;
   status: AppointmentStatus;
   created_at: string;
+};
+
+type GroupedAppointmentRow = AppointmentRow & {
+  request_id: string;
+  request_public_token: string;
+  requested_start_at: string;
+  requested_end_at: string;
+  saved: boolean;
+};
+
+export type GroupedAppointmentRequestResult = {
+  appointments: Appointment[];
+  requestId: string;
+  requestPublicToken: string;
+  unavailableStartsAt: string[];
 };
 
 export type PublicAppointment = Appointment & {
@@ -180,6 +196,66 @@ export async function requestRemoteAppointment(input: {
   return row ? mapAppointmentRow(row) : appointment;
 }
 
+/**
+ * Por que existe: crea una solicitud mensual agrupada sin perder los turnos
+ * disponibles cuando otro de los horarios seleccionados ya fue tomado.
+ * @returns Los turnos creados, los horarios omitidos y el token seguro del grupo.
+ * Efectos secundarios: ejecuta el RPC que crea la solicitud y sus turnos disponibles.
+ * Errores esperados: configuracion ausente, datos invalidos o falla de Supabase.
+ */
+export async function requestRemoteAppointmentGroup(input: {
+  service: Service;
+  startsAt: string[];
+  patientName: string;
+  patientEmail: string;
+  patientPhone: string;
+  language: Locale;
+  notes: string;
+}): Promise<GroupedAppointmentRequestResult> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const candidateAppointments = input.startsAt.map((startsAt) =>
+    createAppointment({ ...input, startsAt }),
+  );
+  const { data, error } = await withTimeout(
+    supabase.rpc("request_grouped_appointments", {
+      appointment_ends_at: candidateAppointments.map((appointment) => appointment.endsAt),
+      appointment_notes: input.notes || "",
+      appointment_patient_email: input.patientEmail.trim().toLowerCase(),
+      appointment_patient_language: input.language,
+      appointment_patient_name: input.patientName,
+      appointment_patient_phone: input.patientPhone || "",
+      appointment_service_id: input.service.id,
+      appointment_starts_at: candidateAppointments.map((appointment) => appointment.startsAt),
+    }),
+    "Supabase did not respond while creating the appointment group.",
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = (data ?? []) as GroupedAppointmentRow[];
+  const firstRow = rows[0];
+  if (!firstRow) {
+    throw new Error("Supabase did not return the appointment group.");
+  }
+
+  return {
+    appointments: rows
+      .filter((row) => row.saved && row.id)
+      .map((row) => mapAppointmentRow(row)),
+    requestId: firstRow.request_id,
+    requestPublicToken: firstRow.request_public_token,
+    unavailableStartsAt: rows
+      .filter((row) => !row.saved)
+      .map((row) => row.requested_start_at),
+  };
+}
+
 export async function loadPublicAppointment(token: string) {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) {
@@ -277,13 +353,18 @@ export async function loadAdminAppointments() {
     supabase
       .from("appointments")
       .select(
-        "id, public_token, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
+        "id, public_token, request_id, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
       )
       .order("created_at", { ascending: false }),
     "Supabase did not respond while loading admin appointments.",
   );
 
-  if (error && error.message.toLowerCase().includes("public_token")) {
+  if (
+    error &&
+    ["public_token", "request_id"].some((column) =>
+      error.message.toLowerCase().includes(column),
+    )
+  ) {
     const { data: fallbackData, error: fallbackError } = await withTimeout(
       supabase
         .from("appointments")
@@ -376,13 +457,18 @@ export async function updateRemoteAppointmentStatus(
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select(
-        "id, public_token, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
+        "id, public_token, request_id, service_id, starts_at, ends_at, patient_name, patient_email, patient_phone, patient_language, notes, status, created_at",
       )
       .single(),
     "Supabase did not respond while updating the appointment.",
   );
 
-  if (error && error.message.toLowerCase().includes("public_token")) {
+  if (
+    error &&
+    ["public_token", "request_id"].some((column) =>
+      error.message.toLowerCase().includes(column),
+    )
+  ) {
     const { data: fallbackData, error: fallbackError } = await withTimeout(
       supabase
         .from("appointments")
@@ -451,6 +537,7 @@ function mapAppointmentRow(row: AppointmentRow): Appointment {
   return {
     id: row.id,
     publicToken: row.public_token ?? undefined,
+    requestId: row.request_id ?? undefined,
     serviceId: row.service_id,
     startsAt: row.starts_at,
     endsAt: row.ends_at,

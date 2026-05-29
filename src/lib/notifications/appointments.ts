@@ -7,6 +7,12 @@ export async function notifyAppointmentRequested(appointment: Appointment) {
   });
 }
 
+export async function notifyGroupedAppointmentsRequested(requestPublicToken: string) {
+  await postNotification("/api/notifications/appointment-requested-group", {
+    requestToken: requireAppointmentToken(requestPublicToken),
+  });
+}
+
 export async function notifyAppointmentStatus(
   appointment: Appointment,
   status: Extract<AppointmentStatus, "confirmed" | "declined">,

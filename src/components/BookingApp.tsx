@@ -20,12 +20,15 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   AvailabilityBlock,
+  ClientAppointment,
   createAdminBlock,
   loadAdminBlocks,
   loadAdminAppointments,
   loadBusyAppointments,
+  loadClientAppointments,
   loadRemoteServices,
   requestRemoteAppointment,
+  requestRemoteAppointmentGroup,
   updateRemoteAppointmentStatus,
 } from "@/lib/supabase/bookings";
 import {
@@ -44,6 +47,7 @@ import {
 } from "@/lib/supabase/auth";
 import {
   notifyAppointmentRequested,
+  notifyGroupedAppointmentsRequested,
   notifyAppointmentStatus,
 } from "@/lib/notifications/appointments";
 
@@ -75,10 +79,12 @@ type BookingFormErrors = Partial<Record<BookingFormField, string>>;
 type SubmittedRequestDetails = {
   address: string;
   appointment: Appointment;
+  appointments: Appointment[];
   emailDelivery: "failed" | "pending" | "sent";
   placeLabel: string;
   priceLabel: string;
   serviceTitle: string;
+  unavailableSlots: string[];
 };
 
 const phoneCountries = [
@@ -102,7 +108,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   const [availableServices, setAvailableServices] = useState(fallbackServices);
   const [serviceId, setServiceId] = useState(fallbackServices[0].id);
   const [date, setDate] = useState(getInitialDate);
-  const [slot, setSlot] = useState("");
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
     if (isSupabaseConfigured() || !isLocalDemoMode) {
       return [];
@@ -248,7 +254,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     [blockingAppointments, date, selectedService],
   );
 
-  const selectedSlot = availableSlots.includes(slot) ? slot : "";
+  const selectedSlot = selectedSlots[0] ?? "";
   const dateOptions = useMemo(() => getDateOptions(12), []);
 
   useEffect(() => {
@@ -270,6 +276,45 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         const account = await getCurrentUser();
         if (!cancelled && account) {
           window.location.replace("/cuenta");
+        }
+      }
+
+      if (!isAdminPage && !admin) {
+        const account = await getCurrentUser();
+        if (cancelled || !account) {
+          return;
+        }
+
+        let previousAppointments: ClientAppointment[] = [];
+        try {
+          previousAppointments = await loadClientAppointments();
+        } catch (error) {
+          logTechnicalError(error);
+        }
+
+        if (!cancelled) {
+          const previousAppointment = previousAppointments[0];
+          const parsedPhone = splitStoredPhone(previousAppointment?.patientPhone ?? "");
+          const accountName = [
+            account.user_metadata?.first_name,
+            account.user_metadata?.last_name,
+          ]
+            .filter((part): part is string => typeof part === "string" && part.length > 0)
+            .join(" ");
+          setForm((current) => ({
+            ...current,
+            patientName:
+              current.patientName ||
+              previousAppointment?.patientName ||
+              account.user_metadata?.full_name ||
+              accountName ||
+              "",
+            patientEmail: current.patientEmail || account.email || "",
+            phoneCountryCode: current.patientPhone
+              ? current.phoneCountryCode
+              : parsedPhone.countryCode,
+            patientPhone: current.patientPhone || parsedPhone.phone,
+          }));
         }
       }
     }
@@ -366,18 +411,44 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         notes: notesWithPlace,
       };
 
-      const appointment = usesRemoteBooking
-        ? await requestRemoteAppointment(appointmentInput)
-        : createAppointment(appointmentInput);
+      let createdAppointments: Appointment[];
+      let unavailableSlots: string[] = [];
+      let requestPublicToken = "";
 
-      setAppointments((current) => [appointment, ...current]);
+      if (usesRemoteBooking && selectedSlots.length > 1) {
+        const groupedResult = await requestRemoteAppointmentGroup({
+          ...appointmentInput,
+          startsAt: selectedSlots,
+        });
+        createdAppointments = groupedResult.appointments;
+        unavailableSlots = groupedResult.unavailableStartsAt;
+        requestPublicToken = groupedResult.requestPublicToken;
+      } else if (usesRemoteBooking) {
+        createdAppointments = [await requestRemoteAppointment(appointmentInput)];
+      } else {
+        createdAppointments = selectedSlots.map((startsAt) =>
+          createAppointment({ ...appointmentInput, startsAt }),
+        );
+      }
+
+      const appointment = createdAppointments[0];
+      if (!appointment) {
+        setSelectedSlots([]);
+        setNotice(t.allSlotsUnavailable);
+        void refreshBusySlots(date);
+        return;
+      }
+
+      setAppointments((current) => [...createdAppointments, ...current]);
       setSubmittedRequest({
         address: appointmentAddress,
         appointment,
+        appointments: createdAppointments,
         emailDelivery: usesRemoteBooking ? "pending" : "failed",
         placeLabel: getAppointmentPlaceLabel(form.appointmentPlace, t),
         priceLabel: formatServicePrice(selectedService, locale, t, displayCurrency),
         serviceTitle: selectedService.title[locale],
+        unavailableSlots,
       });
       setForm({
         patientName: "",
@@ -393,10 +464,14 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       });
       setFormErrors({});
       setNotice("");
-      setSlot("");
+      setSelectedSlots([]);
 
       if (usesRemoteBooking) {
-        void notifyAppointmentRequested(appointment)
+        const notification = requestPublicToken
+          ? notifyGroupedAppointmentsRequested(requestPublicToken)
+          : notifyAppointmentRequested(appointment);
+
+        void notification
           .then(() => {
             setSubmittedRequest((current) =>
               current?.appointment.id === appointment.id
@@ -1085,7 +1160,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                           type="button"
                           onClick={() => {
                             setServiceId(service.id);
-                            setSlot("");
+                            setSelectedSlots([]);
                           }}
                           aria-pressed={isSelected}
                           className={serviceCardClass(isSelected)}
@@ -1125,6 +1200,9 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                   <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
                     {dateOptions.map((option) => {
                       const isSelected = option.value === date;
+                      const hasSelectedSlot = selectedSlots.some((slot) =>
+                        slot.startsWith(option.value),
+                      );
 
                       return (
                         <button
@@ -1132,7 +1210,6 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                           type="button"
                           onClick={() => {
                             setDate(option.value);
-                            setSlot("");
                           }}
                           aria-pressed={isSelected}
                           className={datePillClass(isSelected)}
@@ -1146,6 +1223,16 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                           <span className="text-xs lowercase">
                             {formatMonth(option.date, locale)}
                           </span>
+                          <span
+                            className={[
+                              "mt-1 h-1.5 w-1.5 rounded-full transition",
+                              hasSelectedSlot
+                                ? isSelected
+                                  ? "bg-white"
+                                  : "bg-[#111111]"
+                                : "bg-transparent",
+                            ].join(" ")}
+                          />
                         </button>
                       );
                     })}
@@ -1157,7 +1244,6 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                       min={getTodayDateValue()}
                       onChange={(event) => {
                         setDate(event.target.value);
-                        setSlot("");
                       }}
                       className={inputClass}
                     />
@@ -1166,6 +1252,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
 
                 <div className="grid gap-3">
                   <StepHeading number={4} label={t.chooseTime} />
+                  <p className="text-xs text-[#737373]">{t.multiSlotHint}</p>
                   {availableSlots.length === 0 ? (
                     <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-4 text-sm text-[#525252]">
                       {t.noSlots}
@@ -1173,14 +1260,19 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                   ) : (
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {availableSlots.map((availableSlot) => {
-                        const isSelected = availableSlot === selectedSlot;
+                        const isSelected = selectedSlots.includes(availableSlot);
 
                         return (
                           <button
                             key={availableSlot}
                             type="button"
+                            disabled={!isSelected && selectedSlots.length >= 12}
                             onClick={() => {
-                              setSlot(availableSlot);
+                              setSelectedSlots((current) =>
+                                current.includes(availableSlot)
+                                  ? current.filter((item) => item !== availableSlot)
+                                  : [...current, availableSlot].sort(),
+                              );
                               setFormErrors((current) => ({ ...current, slot: undefined }));
                           }}
                           aria-pressed={isSelected}
@@ -1192,6 +1284,38 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                       })}
                     </div>
                   )}
+                  {selectedSlots.length ? (
+                    <div className="grid gap-2 rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#737373]">
+                        {t.selectedSlots} ({selectedSlots.length})
+                      </p>
+                      {selectedSlots.map((selectedAppointmentSlot) => (
+                        <div
+                          key={selectedAppointmentSlot}
+                          className="flex items-center justify-between gap-3 text-sm text-[#404040]"
+                        >
+                          <span>
+                            {formatSummaryDate(selectedAppointmentSlot, locale)} ·{" "}
+                            <LocalizedTimeLabel value={selectedAppointmentSlot} locale={locale} />
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedSlots((current) =>
+                                current.filter((item) => item !== selectedAppointmentSlot),
+                              )
+                            }
+                            className="cursor-pointer font-semibold text-[#737373] transition hover:text-[#111111]"
+                          >
+                            {t.removeSlot}
+                          </button>
+                        </div>
+                      ))}
+                      {selectedSlots.length >= 12 ? (
+                        <p className="pt-1 text-xs text-[#737373]">{t.slotSelectionLimit}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {formErrors.slot ? (
                     <p className="text-xs font-medium text-[#8a4329]">{formErrors.slot}</p>
                   ) : null}
@@ -1203,6 +1327,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                   displayCurrency={displayCurrency}
                   selectedService={selectedService}
                   selectedSlot={selectedSlot}
+                  selectedSlots={selectedSlots}
                   t={t}
                 />
 
@@ -1337,6 +1462,16 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         </div>
       </section>
     </main>
+    {selectedSlots.length > 0 && !submittedRequest ? (
+      <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 sm:hidden">
+        <div className="flex items-center gap-2 rounded-full bg-[#111111] px-4 py-2.5 shadow-lg">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-[#111111]">
+            {selectedSlots.length}
+          </span>
+          <span className="text-sm font-semibold text-white">{t.selectedSlots}</span>
+        </div>
+      </div>
+    ) : null}
     {submittedRequest ? (
       <PreApprovalModal
         details={submittedRequest}
@@ -1374,6 +1509,8 @@ function PreApprovalModal({
   t: Record<string, string>;
 }) {
   const reservationCode = `PR-${details.appointment.id.slice(0, 6).toUpperCase()}`;
+  const isGroupedRequest =
+    details.appointments.length > 1 || details.unavailableSlots.length > 0;
 
   function closeAndReturnToBooking() {
     onClose();
@@ -1412,14 +1549,18 @@ function PreApprovalModal({
               <SummaryRow label={t.patientAddress} value={details.address} />
             ) : null}
             <SummaryRow label={t.service} value={details.serviceTitle} />
-            <SummaryRow
-              label={t.date}
-              value={formatSummaryDate(details.appointment.startsAt, locale)}
-            />
-            <SummaryRow
-              label={t.time}
-              value={formatTimeOnly(details.appointment.startsAt, locale)}
-            />
+            {!isGroupedRequest ? (
+              <>
+                <SummaryRow
+                  label={t.date}
+                  value={formatSummaryDate(details.appointment.startsAt, locale)}
+                />
+                <SummaryRow
+                  label={t.time}
+                  value={formatTimeOnly(details.appointment.startsAt, locale)}
+                />
+              </>
+            ) : null}
             <SummaryRow
               label={t.duration}
               value={`${Math.round(
@@ -1429,9 +1570,38 @@ function PreApprovalModal({
               )} min`}
             />
             <div className="border-t border-[#e5e5e5] pt-3">
-              <SummaryRow label={t.total} value={details.priceLabel} strong />
+              <SummaryRow
+                label={isGroupedRequest ? t.pricePerAppointment : t.total}
+                value={details.priceLabel}
+                strong
+              />
             </div>
           </dl>
+
+          {isGroupedRequest ? (
+            <div className="grid gap-4 rounded-2xl border border-[#e5e5e5] p-4 text-sm">
+              <div className="grid gap-2">
+                <p className="font-semibold text-[#111111]">{t.savedSlots}</p>
+                {details.appointments.map((appointment) => (
+                  <p key={appointment.id} className="text-[#404040]">
+                    {formatSummaryDate(appointment.startsAt, locale)} ·{" "}
+                    {formatTimeOnly(appointment.startsAt, locale)}
+                  </p>
+                ))}
+              </div>
+              {details.unavailableSlots.length ? (
+                <div className="grid gap-2 border-t border-[#e5e5e5] pt-3">
+                  <p className="font-semibold text-[#8a4329]">{t.unavailableSlots}</p>
+                  {details.unavailableSlots.map((startsAt) => (
+                    <p key={startsAt} className="text-[#525252]">
+                      {formatSummaryDate(startsAt, locale)} ·{" "}
+                      {formatTimeOnly(startsAt, locale)}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid gap-2 rounded-2xl bg-[#f5f5f5] p-4 text-sm leading-6 text-[#404040]">
             {details.emailDelivery === "sent" ? (
@@ -1495,6 +1665,7 @@ function BookingSummary({
   locale,
   selectedService,
   selectedSlot,
+  selectedSlots,
   t,
 }: {
   date: string;
@@ -1502,6 +1673,7 @@ function BookingSummary({
   locale: Locale;
   selectedService: (typeof fallbackServices)[number];
   selectedSlot: string;
+  selectedSlots: string[];
   t: Record<string, string>;
 }) {
   return (
@@ -1517,7 +1689,13 @@ function BookingSummary({
         />
         <SummaryRow
           label={t.time}
-          value={selectedSlot ? formatTimeOnly(selectedSlot, locale) : "-"}
+          value={
+            selectedSlot
+              ? selectedSlots.length > 1
+                ? `${selectedSlots.length} ${t.appointmentsUnit}`
+                : formatTimeOnly(selectedSlot, locale)
+              : "-"
+          }
         />
         <SummaryRow
           label={t.duration}
@@ -2291,6 +2469,8 @@ function AdminRequests({
   onSearchChange: (value: string) => void;
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
 }) {
+  const appointmentGroups = groupAdminAppointments(appointments);
+
   return (
     <section className="grid gap-4">
       <div>
@@ -2332,16 +2512,37 @@ function AdminRequests({
       ) : null}
 
       <div className="grid gap-3">
-        {appointments.map((appointment) => (
-          <AppointmentRow
-            key={appointment.id}
-            appointment={appointment}
-            services={services}
-            locale={locale}
-            t={t}
-            isUpdating={isLoading}
-            onStatusChange={onStatusChange}
-          />
+        {appointmentGroups.map((group) => (
+          <section
+            key={group.key}
+            className={
+              group.requestId
+                ? "grid gap-3 border border-[#d7d7d7] bg-[#fafafa] p-3"
+                : ""
+            }
+          >
+            {group.requestId ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#525252]">
+                  {t.groupedRequest}
+                </p>
+                <p className="text-xs text-[#737373]">
+                  {group.appointments.length} {t.appointmentsUnit}
+                </p>
+              </div>
+            ) : null}
+            {group.appointments.map((appointment) => (
+              <AppointmentRow
+                key={appointment.id}
+                appointment={appointment}
+                services={services}
+                locale={locale}
+                t={t}
+                isUpdating={isLoading}
+                onStatusChange={onStatusChange}
+              />
+            ))}
+          </section>
         ))}
       </div>
     </section>
@@ -3576,6 +3777,36 @@ function getAdminClients(appointments: Appointment[]) {
   );
 }
 
+/**
+ * Por que existe: mantiene juntos en el panel los turnos nacidos de una misma
+ * solicitud mensual mientras cada tarjeta conserva sus acciones individuales.
+ * @returns Grupos en el orden original de la bandeja administrativa.
+ * Efectos secundarios: ninguno.
+ */
+function groupAdminAppointments(appointments: Appointment[]) {
+  const groups = new Map<
+    string,
+    { appointments: Appointment[]; key: string; requestId?: string }
+  >();
+
+  appointments.forEach((appointment) => {
+    const key = appointment.requestId ?? appointment.id;
+    const current = groups.get(key);
+    if (current) {
+      current.appointments.push(appointment);
+      return;
+    }
+
+    groups.set(key, {
+      appointments: [appointment],
+      key,
+      requestId: appointment.requestId,
+    });
+  });
+
+  return Array.from(groups.values());
+}
+
 function sanitizePersonName(value: string) {
   return value.replace(/[^A-Za-zÀ-ÿА-Яа-яЁё '-]/g, "").replace(/\s{2,}/g, " ");
 }
@@ -3586,6 +3817,28 @@ function normalizePersonName(value: string) {
 
 function onlyDigits(value: string) {
   return value.replace(/\D/g, "");
+}
+
+/**
+ * Por que existe: recupera el telefono ya usado por un paciente autenticado
+ * para precargar una nueva reserva sin pedirle sus datos nuevamente.
+ * @returns Codigo de pais conocido y numero compuesto solo por digitos.
+ * Efectos secundarios: ninguno.
+ */
+function splitStoredPhone(value: string) {
+  const storedPhone = value.trim();
+  const country =
+    [...phoneCountries]
+      .sort((first, second) => second.code.length - first.code.length)
+      .find((item) => storedPhone.startsWith(item.code)) ?? phoneCountries[0];
+  const phone = storedPhone.startsWith(country.code)
+    ? onlyDigits(storedPhone.slice(country.code.length))
+    : onlyDigits(storedPhone);
+
+  return {
+    countryCode: country.code,
+    phone,
+  };
 }
 
 function sanitizeAddressText(value: string) {
