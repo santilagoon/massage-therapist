@@ -991,76 +991,28 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
             )}
 
             <div className="flex items-center gap-2">
-              {!adminUser && !isAdminPage ? (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsUserSelectorOpen((v) => !v)}
-                    aria-label={t.loginAdmin}
-                    aria-expanded={isUserSelectorOpen}
-                    className={[
-                      "flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border bg-white text-[#111111] transition hover:bg-[#fafafa]",
-                      clientUser ? "border-[#111111]" : "border-[#d4d4d4]",
-                    ].join(" ")}
-                  >
-                    <UserIcon />
-                  </button>
-
-                  {isUserSelectorOpen ? (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setIsUserSelectorOpen(false)}
-                      />
-                      {/* Mobile: bottom sheet */}
-                      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white px-5 pb-8 pt-5 shadow-2xl sm:hidden">
-                        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[#d4d4d4]" />
-                        <p className="mb-4 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#737373]">
-                          {t.loginAdmin}
-                        </p>
-                        <div className="grid gap-3">
-                          <a
-                            href="/cuenta"
-                            onClick={() => setIsUserSelectorOpen(false)}
-                            className="flex h-14 items-center gap-4 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] px-5 text-sm font-semibold text-[#111111] transition hover:border-[#111111]"
-                          >
-                            <span className="text-xl">🧖</span>
-                            {t.iAmPatient}
-                          </a>
-                          <a
-                            href="/admin"
-                            onClick={() => setIsUserSelectorOpen(false)}
-                            className="flex h-14 items-center gap-4 rounded-2xl border border-[#111111] bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b]"
-                          >
-                            <span className="text-xl">🔑</span>
-                            {t.professionalPanel}
-                          </a>
-                        </div>
-                      </div>
-
-                      {/* Desktop: dropdown */}
-                      <div className="absolute right-0 top-12 z-50 hidden w-52 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white shadow-xl sm:block">
-                        <a
-                          href="/cuenta"
-                          onClick={() => setIsUserSelectorOpen(false)}
-                          className="flex h-12 items-center gap-3 px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5]"
-                        >
-                          <span>🧖</span>
-                          {t.iAmPatient}
-                        </a>
-                        <div className="border-t border-[#e5e5e5]" />
-                        <a
-                          href="/admin"
-                          onClick={() => setIsUserSelectorOpen(false)}
-                          className="flex h-12 items-center gap-3 px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5]"
-                        >
-                          <span>🔑</span>
-                          {t.professionalPanel}
-                        </a>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
+              {adminUser && !isAdminPage ? (
+                <a
+                  href="/admin"
+                  title={t.adminProfile}
+                  aria-label={t.adminProfile}
+                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#111111] bg-[#111111] text-white transition hover:bg-[#2b2b2b]"
+                >
+                  <UserIcon />
+                </a>
+              ) : !adminUser && !isAdminPage ? (
+                <button
+                  type="button"
+                  onClick={() => setIsUserSelectorOpen((v) => !v)}
+                  aria-label={t.loginAdmin}
+                  aria-expanded={isUserSelectorOpen}
+                  className={[
+                    "flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border bg-white text-[#111111] transition hover:bg-[#fafafa]",
+                    clientUser ? "border-[#111111]" : "border-[#d4d4d4]",
+                  ].join(" ")}
+                >
+                  <UserIcon />
+                </button>
               ) : (
                 <button
                   type="button"
@@ -1567,6 +1519,62 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         </div>
       </section>
     </main>
+
+    {isUserSelectorOpen && !adminUser && !isAdminPage ? (
+      <>
+        <div
+          className="fixed inset-0 z-40 bg-black/40"
+          onClick={() => setIsUserSelectorOpen(false)}
+        />
+        {/* Mobile: bottom sheet */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white px-5 pb-8 pt-5 shadow-2xl sm:hidden">
+          <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[#d4d4d4]" />
+          <p className="mb-4 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#737373]">
+            {t.loginAdmin}
+          </p>
+          <div className="grid gap-3">
+            <a
+              href="/cuenta"
+              onClick={() => setIsUserSelectorOpen(false)}
+              className="flex h-14 items-center gap-4 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] px-5 text-sm font-semibold text-[#111111] transition hover:border-[#111111]"
+            >
+              <span className="text-xl">🧖</span>
+              {t.iAmPatient}
+            </a>
+            <a
+              href="/admin"
+              onClick={() => setIsUserSelectorOpen(false)}
+              className="flex h-14 items-center gap-4 rounded-2xl border border-[#111111] bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b]"
+            >
+              <span className="text-xl">🔑</span>
+              {t.professionalPanel}
+            </a>
+          </div>
+        </div>
+
+        {/* Desktop: dropdown */}
+        <div className="fixed right-5 top-[4.5rem] z-50 hidden w-52 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white shadow-xl sm:block">
+          <a
+            href="/cuenta"
+            onClick={() => setIsUserSelectorOpen(false)}
+            className="flex h-12 items-center gap-3 px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5]"
+          >
+            <span>🧖</span>
+            {t.iAmPatient}
+          </a>
+          <div className="border-t border-[#e5e5e5]" />
+          <a
+            href="/admin"
+            onClick={() => setIsUserSelectorOpen(false)}
+            className="flex h-12 items-center gap-3 px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5]"
+          >
+            <span>🔑</span>
+            {t.professionalPanel}
+          </a>
+        </div>
+      </>
+    ) : null}
+
     {selectedSlots.length > 0 && !submittedRequest ? (
       <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 sm:hidden">
         <div className="flex items-center gap-2 rounded-full bg-[#111111] px-4 py-2.5 shadow-lg">
