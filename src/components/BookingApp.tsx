@@ -704,6 +704,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     }
 
     if (isAdminPage) {
+      document.querySelector("form")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -916,6 +917,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                 onRefresh={loadAdminData}
                 onCreateBlock={handleCreateBlock}
                 onStatusChange={updateStatus}
+                onViewChange={setAdminView}
               />
             </div>
           </div>
@@ -1755,6 +1757,7 @@ function AdminPanel({
   onRefresh,
   onCreateBlock,
   onStatusChange,
+  onViewChange,
 }: {
   adminView: AdminView;
   appointments: Appointment[];
@@ -1787,6 +1790,7 @@ function AdminPanel({
     reason: string;
   }) => Promise<void>;
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
+  onViewChange: (view: AdminView) => void;
 }) {
   const [filter, setFilter] = useState<AdminFilter>("all");
   const [requestSearch, setRequestSearch] = useState("");
@@ -1794,10 +1798,6 @@ function AdminPanel({
   const stats = getAdminStats(appointments);
   const dateOptions = useMemo(() => getDateOptions(10), []);
   const visibleAppointments = appointments.filter((appointment) => {
-    if (filter === "future_confirmed") {
-      return appointment.status === "confirmed" && new Date(appointment.startsAt) >= new Date();
-    }
-
     if (filter === "all") {
       return true;
     }
@@ -1929,7 +1929,16 @@ function AdminPanel({
       {adminView === "team" ? <AdminPlaceholder title={t.adminTeam} copy={t.teamPending} /> : null}
 
       {adminView === "clients" ? (
-        <AdminClients appointments={appointments} locale={locale} t={t} />
+        <AdminClients
+          appointments={appointments}
+          locale={locale}
+          t={t}
+          onViewRequests={(email) => {
+            setRequestSearch(email);
+            setFilter("all");
+            onViewChange("requests");
+          }}
+        />
       ) : null}
 
       {adminView === "income" ? <AdminIncome appointments={appointments} services={services} t={t} /> : null}
@@ -2383,27 +2392,24 @@ function AdminRequests({
         <p className="mt-2 text-sm text-[#737373]">{t.requestsIntro}</p>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input
-          value={requestSearch}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={t.requestSearchPlaceholder}
-          className="h-9 w-full max-w-[12rem] border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition placeholder:text-[#8a8a8a] focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
-        />
-      </div>
+      <input
+        value={requestSearch}
+        onChange={(event) => onSearchChange(event.target.value)}
+        placeholder={t.requestSearchPlaceholder}
+        className="h-10 w-full border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition placeholder:text-[#8a8a8a] focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15 sm:max-w-[14rem]"
+      />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
         {([
           ["all", t.allAppointments, stats.total],
           ["pending_approval", t.pendingAppointments, stats.pending],
           ["confirmed", t.confirmedAppointments, stats.confirmed],
-          ["future_confirmed", t.futureAppointments, stats.futureConfirmed],
         ] as const).map(([value, label, count]) => (
           <button
             key={value}
             type="button"
             onClick={() => onFilterChange(value)}
-            className={filterButtonClass(filter === value)}
+            className={[filterButtonClass(filter === value), "shrink-0"].join(" ")}
           >
             {label} · {count}
           </button>
@@ -2491,10 +2497,12 @@ function AdminClients({
   appointments,
   locale,
   t,
+  onViewRequests,
 }: {
   appointments: Appointment[];
   locale: Locale;
   t: Record<string, string>;
+  onViewRequests: (email: string) => void;
 }) {
   const clients = getAdminClients(appointments);
 
@@ -2514,13 +2522,24 @@ function AdminClients({
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {clients.map((client) => (
-            <article key={client.key} className="border border-[#e5e5e5] bg-white p-4">
-              <h2 className="font-semibold text-[#111111]">{client.name}</h2>
-              <p className="mt-1 text-sm text-[#737373]">{client.email}</p>
-              {client.phone ? <p className="mt-1 text-sm text-[#737373]">{client.phone}</p> : null}
-              <p className="mt-3 text-sm font-semibold text-[#404040]">
-                {client.count} {t.appointmentsLabel} · {formatDateTime(client.lastVisit, locale)}
-              </p>
+            <article key={client.key} className="border border-[#e5e5e5] bg-white">
+              <div className="p-4">
+                <h2 className="font-semibold text-[#111111]">{client.name}</h2>
+                <p className="mt-1 text-sm text-[#737373]">{client.email}</p>
+                {client.phone ? <p className="mt-1 text-sm text-[#737373]">{client.phone}</p> : null}
+                <p className="mt-3 text-sm font-semibold text-[#404040]">
+                  {client.count} {t.appointmentsLabel} · {formatDateTime(client.lastVisit, locale)}
+                </p>
+              </div>
+              <div className="border-t border-[#e5e5e5]">
+                <button
+                  type="button"
+                  onClick={() => onViewRequests(client.email)}
+                  className="h-11 w-full cursor-pointer text-sm font-semibold uppercase tracking-[0.08em] text-[#404040] transition hover:bg-[#f5f5f5]"
+                >
+                  {t.viewClientRequests}
+                </button>
+              </div>
             </article>
           ))}
         </div>

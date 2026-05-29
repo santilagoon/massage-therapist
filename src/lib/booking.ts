@@ -271,6 +271,7 @@ export const translations = {
     clientsRegistered: "registrados",
     noClientsYet: "Todavia no hay clientes registrados.",
     appointmentsLabel: "turnos",
+    viewClientRequests: "Ver solicitudes",
     incomePending:
       "Primer resumen de ingresos. En la próxima etapa sumaremos edición manual y gráficos mensuales.",
     dailyIncome: "Ingresos diarios",
@@ -515,6 +516,7 @@ export const translations = {
     clientsRegistered: "registered",
     noClientsYet: "No clients registered yet.",
     appointmentsLabel: "appointments",
+    viewClientRequests: "View requests",
     incomePending:
       "First income summary. In the next stage we will add manual entries and monthly charts.",
     dailyIncome: "Daily income",
@@ -760,6 +762,7 @@ export const translations = {
     clientsRegistered: "зарегистрировано",
     noClientsYet: "Клиентов пока нет.",
     appointmentsLabel: "записей",
+    viewClientRequests: "Посмотреть записи",
     incomePending:
       "Первичный обзор доходов. На следующем этапе добавим ручные записи и месячные графики.",
     dailyIncome: "Доход за день",
