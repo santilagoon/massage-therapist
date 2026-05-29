@@ -987,7 +987,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
             <div className="flex items-center gap-2">
               {!adminUser && !isAdminPage ? (
                 <a
-                  href="/cuenta"
+                  href="/admin"
                   title={t.loginAdmin}
                   aria-label={t.loginAdmin}
                   className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
