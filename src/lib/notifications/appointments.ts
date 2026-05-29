@@ -7,12 +7,6 @@ export async function notifyAppointmentRequested(appointment: Appointment) {
   });
 }
 
-/**
- * Por que existe: envia un unico resumen para una solicitud con varios turnos,
- * evitando un correo por cada horario reservado.
- * @returns Una promesa que finaliza cuando el endpoint acepta el envio.
- * Efectos secundarios: realiza un POST al endpoint de notificaciones agrupadas.
- */
 export async function notifyGroupedAppointmentsRequested(requestPublicToken: string) {
   await postNotification("/api/notifications/appointment-requested-group", {
     requestToken: requireAppointmentToken(requestPublicToken),

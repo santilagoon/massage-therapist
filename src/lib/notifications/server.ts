@@ -30,6 +30,7 @@ type PublicAppointmentRequestRow = PublicAppointmentRow & {
   unavailable_starts_at: string[];
 };
 
+
 export type NotificationInput = {
   appointmentToken: string;
   status?: Extract<AppointmentStatus, "confirmed" | "declined">;
@@ -39,6 +40,7 @@ export type GroupNotificationInput = {
   requestToken: string;
 };
 
+
 type VerificationResult =
   | { payload: EmailAppointmentPayload }
   | { response: NextResponse };
@@ -46,6 +48,7 @@ type VerificationResult =
 type GroupVerificationResult =
   | { payload: GroupedAppointmentEmailPayload }
   | { response: NextResponse };
+
 
 type RateLimitWindow = {
   count: number;

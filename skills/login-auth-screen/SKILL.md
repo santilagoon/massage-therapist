@@ -37,6 +37,7 @@ Model the screen as explicit states rather than separate pages when possible:
 - Recovery verification should allow the user to set a new password.
 - Google login should be present when enabled, but the app must still enforce role permissions after OAuth succeeds.
 - Client social login should redirect to the client portal/account area, not to the admin dashboard.
+- When signup-code verification immediately establishes a session, clear the transient success notice before rendering the authenticated portal.
 - If OAuth ever lands on an admin URL because of provider/Site URL configuration, detect the authenticated non-admin account and immediately redirect it to the client portal.
 
 ## Supabase Auth Pattern
