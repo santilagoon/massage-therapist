@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { User } from "@supabase/supabase-js";
 import { AuthPanel } from "@/components/BookingApp";
 import { Locale, timeZone, translations } from "@/lib/booking";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/supabase/bookings";
 import {
   AdminAuthError,
+  getCurrentAdminUser,
   getCurrentUser,
   resendSignupCode,
   sendPasswordRecovery,
@@ -31,6 +33,7 @@ const statusLabels: Record<string, string> = {
   declined: "Rechazado",
   pending_approval: "Pendiente de confirmación",
 };
+type ClientPortalView = "appointments" | "history";
 
 export function ClientPortalPage() {
   const locale: Locale = "es";
@@ -41,6 +44,7 @@ export function ClientPortalPage() {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [isCancellingId, setIsCancellingId] = useState<string | null>(null);
+  const [clientView, setClientView] = useState<ClientPortalView>("appointments");
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +53,13 @@ export function ClientPortalPage() {
       try {
         const currentUser = await getCurrentUser();
         if (cancelled) {
+          return;
+        }
+
+        if (currentUser && (await getCurrentAdminUser())) {
+          if (!cancelled) {
+            window.location.replace("/admin");
+          }
           return;
         }
 
@@ -89,6 +100,11 @@ export function ClientPortalPage() {
     setNotice("");
     try {
       const signedInUser = await signInAccount(email.trim(), password);
+      if (await getCurrentAdminUser()) {
+        window.location.replace("/admin");
+        return;
+      }
+
       setUser(signedInUser);
       await refreshAppointments();
     } catch (error) {
@@ -133,7 +149,7 @@ export function ClientPortalPage() {
       if (currentUser) {
         await refreshAppointments();
       }
-      setNotice(t.emailVerified);
+      setNotice("");
       return true;
     } catch (error) {
       logPortalError(error);
@@ -230,6 +246,7 @@ export function ClientPortalPage() {
     setUser(null);
     setAppointments([]);
     setNotice("");
+    setClientView("appointments");
     window.location.href = "/";
   }
 
@@ -288,25 +305,16 @@ export function ClientPortalPage() {
     <main className="min-h-screen bg-[#f7f7f5] text-[#111111]">
       <header className="border-b border-[#e5e5e5] bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <a href="/" className="text-sm font-semibold tracking-[0.12em]">
+          <Link href="/" className="text-sm font-semibold tracking-[0.12em]">
             MM
-          </a>
+          </Link>
           <div className="flex items-center gap-2">
-            {user ? (
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                className="h-10 cursor-pointer rounded-full border border-[#d4d4d4] px-4 text-sm font-semibold transition hover:bg-white"
-              >
-                Salir
-              </button>
-            ) : null}
-            <a
+            <Link
               href="/"
               className="rounded-full border border-[#d4d4d4] px-4 py-2 text-sm font-semibold transition hover:bg-white"
             >
               Inicio
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -335,86 +343,167 @@ export function ClientPortalPage() {
         ) : null}
 
         {!isLoading && user ? (
-          <div className="grid gap-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#747c67]">
-                  Portal de paciente
-                </p>
-                <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">
-                  Tus reservas
-                </h1>
-                <p className="mt-2 text-sm text-[#6b6b6b]">
-                  Sesión iniciada como {user.email}
-                </p>
+          <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
+            <ClientSidebar
+              email={user.email ?? ""}
+              view={clientView}
+              onLogout={handleLogout}
+              onViewChange={setClientView}
+            />
+
+            <div className="grid gap-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#747c67]">
+                    Portal de paciente
+                  </p>
+                  <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">
+                    {clientView === "appointments" ? "Mis turnos" : "Historial"}
+                  </h1>
+                  <p className="mt-2 text-sm text-[#6b6b6b]">
+                    Sesión iniciada como {user.email}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void refreshAppointments()}
+                  className="h-11 cursor-pointer rounded-full border border-[#d4d4d4] px-5 text-sm font-semibold transition hover:bg-white"
+                >
+                  Actualizar
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => void refreshAppointments()}
-                className="h-11 cursor-pointer rounded-full border border-[#d4d4d4] px-5 text-sm font-semibold transition hover:bg-white"
-              >
-                Actualizar
-              </button>
+
+              {notice ? (
+                <p className="rounded-2xl border border-[#e5e5e5] bg-white p-4 text-sm font-medium text-[#404040]">
+                  {notice}
+                </p>
+              ) : null}
+
+              {clientView === "appointments" ? (
+                <section className="grid gap-4 rounded-3xl border border-[#e5e5e5] bg-white p-5 shadow-sm sm:p-6">
+                  <div>
+                    <h2 className="text-2xl font-semibold">Pendientes y confirmadas</h2>
+                    <p className="mt-1 text-sm text-[#6b6b6b]">
+                      Acá podés ver y cancelar reservas futuras que todavía estén activas.
+                    </p>
+                  </div>
+
+                  {activeAppointments.length ? (
+                    <div className="grid gap-3">
+                      {activeAppointments.map((appointment) => (
+                        <ClientAppointmentCard
+                          key={appointment.id}
+                          appointment={appointment}
+                          isCancelling={isCancellingId === appointment.id}
+                          onCancel={handleCancel}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState text="No tenés reservas activas." />
+                  )}
+                </section>
+              ) : (
+                <section className="grid gap-4 rounded-3xl border border-[#e5e5e5] bg-white p-5 shadow-sm sm:p-6">
+                  <div>
+                    <h2 className="text-2xl font-semibold">Historial</h2>
+                    <p className="mt-1 text-sm text-[#6b6b6b]">
+                      Reservas realizadas, canceladas, rechazadas o pasadas.
+                    </p>
+                  </div>
+
+                  {historyAppointments.length ? (
+                    <div className="grid gap-3">
+                      {historyAppointments.map((appointment) => (
+                        <ClientAppointmentCard
+                          key={appointment.id}
+                          appointment={appointment}
+                          isCancelling={false}
+                          onCancel={handleCancel}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState text="Todavía no hay historial para mostrar." />
+                  )}
+                </section>
+              )}
             </div>
-
-            {notice ? (
-              <p className="rounded-2xl border border-[#e5e5e5] bg-white p-4 text-sm font-medium text-[#404040]">
-                {notice}
-              </p>
-            ) : null}
-
-            <section className="grid gap-4 rounded-3xl border border-[#e5e5e5] bg-white p-5 shadow-sm sm:p-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Pendientes y confirmadas</h2>
-                <p className="mt-1 text-sm text-[#6b6b6b]">
-                  Acá podés ver y cancelar reservas futuras que todavía estén activas.
-                </p>
-              </div>
-
-              {activeAppointments.length ? (
-                <div className="grid gap-3">
-                  {activeAppointments.map((appointment) => (
-                    <ClientAppointmentCard
-                      key={appointment.id}
-                      appointment={appointment}
-                      isCancelling={isCancellingId === appointment.id}
-                      onCancel={handleCancel}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState text="No tenés reservas activas." />
-              )}
-            </section>
-
-            <section className="grid gap-4 rounded-3xl border border-[#e5e5e5] bg-white p-5 shadow-sm sm:p-6">
-              <div>
-                <h2 className="text-2xl font-semibold">Historial</h2>
-                <p className="mt-1 text-sm text-[#6b6b6b]">
-                  Reservas realizadas, canceladas, rechazadas o pasadas.
-                </p>
-              </div>
-
-              {historyAppointments.length ? (
-                <div className="grid gap-3">
-                  {historyAppointments.map((appointment) => (
-                    <ClientAppointmentCard
-                      key={appointment.id}
-                      appointment={appointment}
-                      isCancelling={false}
-                      onCancel={handleCancel}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState text="Todavía no hay historial para mostrar." />
-              )}
-            </section>
           </div>
         ) : null}
       </section>
     </main>
   );
+}
+
+/**
+ * Por que existe: ofrece al paciente la misma navegacion persistente del
+ * panel administrativo, incluyendo salida visible en el pie lateral.
+ * @returns Navegacion del portal autenticado.
+ * Efectos secundarios: dispara navegacion interna o cierre de sesion.
+ */
+function ClientSidebar({
+  email,
+  view,
+  onLogout,
+  onViewChange,
+}: {
+  email: string;
+  view: ClientPortalView;
+  onLogout: () => Promise<void>;
+  onViewChange: (view: ClientPortalView) => void;
+}) {
+  return (
+    <aside className="flex min-h-[28rem] flex-col rounded-2xl border border-[#e5e5e5] bg-white p-3 shadow-sm">
+      <p className="px-3 pb-3 pt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#747c67]">
+        Mi cuenta
+      </p>
+      <nav className="grid gap-1">
+        <Link
+          href="/#booking"
+          className="rounded-xl px-3 py-3 text-sm font-semibold text-[#404040] transition hover:bg-[#f5f5f5]"
+        >
+          Reservar
+        </Link>
+        <button
+          type="button"
+          onClick={() => onViewChange("appointments")}
+          className={clientNavClass(view === "appointments")}
+        >
+          Mis turnos
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewChange("history")}
+          className={clientNavClass(view === "history")}
+        >
+          Historial
+        </button>
+      </nav>
+      <div className="mt-auto border-t border-[#e5e5e5] px-3 pt-4">
+        <p className="truncate text-xs text-[#737373]">{email}</p>
+        <button
+          type="button"
+          onClick={() => void onLogout()}
+          className="mt-3 w-full cursor-pointer rounded-xl border border-[#d4d4d4] px-3 py-3 text-left text-sm font-semibold transition hover:bg-[#f5f5f5]"
+        >
+          Salir
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * Por que existe: mantiene consistente el indicador visual de la vista activa.
+ * @returns Clases de estilo de una opcion del sidebar.
+ * Efectos secundarios: ninguno.
+ */
+function clientNavClass(active: boolean) {
+  return [
+    "cursor-pointer rounded-xl px-3 py-3 text-left text-sm font-semibold transition",
+    active ? "bg-[#111111] text-white" : "text-[#404040] hover:bg-[#f5f5f5]",
+  ].join(" ");
 }
 
 function ClientAppointmentCard({
