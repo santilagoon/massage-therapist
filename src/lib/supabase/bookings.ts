@@ -47,6 +47,16 @@ type GroupedAppointmentRow = AppointmentRow & {
   saved: boolean;
 };
 
+export type Client = {
+  id: string;
+  email: string;
+  name: string;
+  phone: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type GroupedAppointmentRequestResult = {
   appointments: Appointment[];
   requestId: string;
@@ -570,4 +580,69 @@ function mapPublicAppointmentRow(row: PublicAppointmentRow): PublicAppointment {
     servicePriceCents: row.service_price_cents,
     serviceTitle: row.service_title,
   };
+}
+
+export async function loadAdminClients(): Promise<Client[]> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return [];
+
+  const { data, error } = await withTimeout(
+    supabase
+      .from("clients")
+      .select("id, email, name, phone, notes, created_at, updated_at")
+      .order("name", { ascending: true }),
+    "Supabase did not respond while loading clients.",
+  );
+
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as Array<{
+    id: string;
+    email: string;
+    name: string;
+    phone: string | null;
+    notes: string | null;
+    created_at: string;
+    updated_at: string;
+  }>).map((row) => ({
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    phone: row.phone ?? "",
+    notes: row.notes ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function updateClient(
+  id: string,
+  input: { name: string; phone: string; notes: string },
+): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) throw new Error("Supabase is not configured.");
+
+  const { error } = await withTimeout(
+    supabase.rpc("update_client", {
+      p_id: id,
+      p_name: input.name,
+      p_phone: input.phone,
+      p_notes: input.notes,
+    }),
+    "Supabase did not respond while updating the client.",
+  );
+
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteClient(id: string): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) throw new Error("Supabase is not configured.");
+
+  const { error } = await withTimeout(
+    supabase.rpc("delete_client", { p_id: id }),
+    "Supabase did not respond while deleting the client.",
+  );
+
+  if (error) throw new Error(error.message);
 }

@@ -20,15 +20,19 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   AvailabilityBlock,
+  Client,
   ClientAppointment,
   createAdminBlock,
+  deleteClient,
   loadAdminBlocks,
   loadAdminAppointments,
+  loadAdminClients,
   loadBusyAppointments,
   loadClientAppointments,
   loadRemoteServices,
   requestRemoteAppointment,
   requestRemoteAppointmentGroup,
+  updateClient,
   updateRemoteAppointmentStatus,
 } from "@/lib/supabase/bookings";
 import {
@@ -122,6 +126,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     return stored ? (JSON.parse(stored) as Appointment[]) : initialAppointments;
   });
   const [availabilityBlocks, setAvailabilityBlocks] = useState<AvailabilityBlock[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [busyAppointments, setBusyAppointments] = useState<Appointment[]>([]);
   const [adminUser, setAdminUser] = useState<User | null>(null);
   const [isAdminUserMenuOpen, setIsAdminUserMenuOpen] = useState(false);
@@ -562,6 +567,13 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       logTechnicalError(error);
       setNotice("");
     }
+
+    try {
+      const remoteClients = await loadAdminClients();
+      setClients(remoteClients);
+    } catch (error) {
+      logTechnicalError(error);
+    }
   }
 
   async function handleAdminLogin(email: string, password: string) {
@@ -899,6 +911,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                 adminView={adminView}
                 appointments={appointments}
                 availabilityBlocks={availabilityBlocks}
+                clients={clients}
                 services={availableServices}
                 adminUser={adminUser}
                 isLoading={isLoadingAdmin || isUpdatingStatus}
@@ -918,6 +931,16 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                 onCreateBlock={handleCreateBlock}
                 onStatusChange={updateStatus}
                 onViewChange={setAdminView}
+                onUpdateClient={async (id, input) => {
+                  await updateClient(id, input);
+                  setClients((current) =>
+                    current.map((c) => (c.id === id ? { ...c, ...input, updatedAt: new Date().toISOString() } : c)),
+                  );
+                }}
+                onDeleteClient={async (id) => {
+                  await deleteClient(id);
+                  setClients((current) => current.filter((c) => c.id !== id));
+                }}
               />
             </div>
           </div>
@@ -1750,6 +1773,7 @@ function AdminPanel({
   adminView,
   appointments,
   availabilityBlocks,
+  clients,
   services,
   adminUser,
   isLoading,
@@ -1769,10 +1793,13 @@ function AdminPanel({
   onCreateBlock,
   onStatusChange,
   onViewChange,
+  onUpdateClient,
+  onDeleteClient,
 }: {
   adminView: AdminView;
   appointments: Appointment[];
   availabilityBlocks: AvailabilityBlock[];
+  clients: Client[];
   services: typeof fallbackServices;
   adminUser: User | null;
   isLoading: boolean;
@@ -1802,6 +1829,8 @@ function AdminPanel({
   }) => Promise<void>;
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
   onViewChange: (view: AdminView) => void;
+  onUpdateClient: (id: string, input: { name: string; phone: string; notes: string }) => Promise<void>;
+  onDeleteClient: (id: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState<AdminFilter>("all");
   const [requestSearch, setRequestSearch] = useState("");
@@ -1942,6 +1971,8 @@ function AdminPanel({
       {adminView === "clients" ? (
         <AdminClients
           appointments={appointments}
+          clients={clients}
+          isLoading={isLoading}
           locale={locale}
           t={t}
           onViewRequests={(email) => {
@@ -1949,6 +1980,8 @@ function AdminPanel({
             setFilter("all");
             onViewChange("requests");
           }}
+          onUpdateClient={onUpdateClient}
+          onDeleteClient={onDeleteClient}
         />
       ) : null}
 
@@ -2504,18 +2537,212 @@ function AdminServices({
   );
 }
 
-function AdminClients({
-  appointments,
+function AdminClientCard({
+  client,
+  appointmentCount,
+  lastVisit,
+  isLoading,
   locale,
   t,
   onViewRequests,
+  onUpdateClient,
+  onDeleteClient,
 }: {
-  appointments: Appointment[];
+  client: Client;
+  appointmentCount: number;
+  lastVisit: string | null;
+  isLoading: boolean;
   locale: Locale;
   t: Record<string, string>;
   onViewRequests: (email: string) => void;
+  onUpdateClient: (id: string, input: { name: string; phone: string; notes: string }) => Promise<void>;
+  onDeleteClient: (id: string) => Promise<void>;
 }) {
-  const clients = getAdminClients(appointments);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [form, setForm] = useState({
+    name: client.name,
+    phone: client.phone,
+    notes: client.notes,
+  });
+
+  async function handleSave() {
+    if (!form.name.trim()) return;
+    setIsSaving(true);
+    try {
+      await onUpdateClient(client.id, form);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setIsSaving(true);
+    try {
+      await onDeleteClient(client.id);
+    } finally {
+      setIsSaving(false);
+      setConfirmDelete(false);
+    }
+  }
+
+  return (
+    <article className="border border-[#e5e5e5] bg-white">
+      {isEditing ? (
+        <div className="grid gap-3 p-4">
+          <div className="grid gap-1">
+            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-[#737373]">
+              {t.fullName}
+            </label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              className="h-10 w-full border border-[#d4d4d4] bg-white px-3 text-sm outline-none focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
+            />
+          </div>
+          <div className="grid gap-1">
+            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-[#737373]">
+              {t.phone}
+            </label>
+            <input
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              className="h-10 w-full border border-[#d4d4d4] bg-white px-3 text-sm outline-none focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
+            />
+          </div>
+          <div className="grid gap-1">
+            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-[#737373]">
+              {t.notes}
+            </label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              rows={2}
+              className="w-full resize-none border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => { setIsEditing(false); setForm({ name: client.name, phone: client.phone, notes: client.notes }); }}
+              className="h-10 cursor-pointer border border-[#d4d4d4] text-sm font-semibold text-[#404040] transition hover:border-[#111111]"
+            >
+              {t.close}
+            </button>
+            <button
+              type="button"
+              disabled={isSaving || !form.name.trim()}
+              onClick={handleSave}
+              className="h-10 cursor-pointer bg-[#111111] text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:opacity-50"
+            >
+              {isSaving ? t.loading : t.saveClient}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="truncate font-semibold text-[#111111]">{client.name}</h2>
+              <p className="mt-1 text-sm text-[#737373]">{client.email}</p>
+              {client.phone ? <p className="mt-0.5 text-sm text-[#737373]">{client.phone}</p> : null}
+              {client.notes ? <p className="mt-2 text-sm italic text-[#737373]">{client.notes}</p> : null}
+            </div>
+          </div>
+          <p className="mt-3 text-sm font-semibold text-[#404040]">
+            {appointmentCount} {t.appointmentsLabel}
+            {lastVisit ? ` · ${formatDateTime(lastVisit, locale)}` : ""}
+          </p>
+        </div>
+      )}
+
+      {!isEditing ? (
+        confirmDelete ? (
+          <div className="border-t border-[#e5e5e5] p-3">
+            <p className="mb-2 text-center text-xs text-[#737373]">{t.confirmDeleteClient}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="h-10 cursor-pointer border border-[#d4d4d4] text-sm font-semibold text-[#404040] transition hover:border-[#111111]"
+              >
+                {t.close}
+              </button>
+              <button
+                type="button"
+                disabled={isSaving || isLoading}
+                onClick={handleDelete}
+                className="h-10 cursor-pointer bg-[#8a4329] text-sm font-semibold text-white transition hover:bg-[#6e3521] disabled:opacity-50"
+              >
+                {isSaving ? t.loading : t.deleteClient}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 border-t border-[#e5e5e5]">
+            <button
+              type="button"
+              onClick={() => onViewRequests(client.email)}
+              className="h-11 cursor-pointer border-r border-[#e5e5e5] text-xs font-semibold uppercase tracking-[0.08em] text-[#404040] transition hover:bg-[#f5f5f5]"
+            >
+              {t.viewClientRequests}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="h-11 cursor-pointer border-r border-[#e5e5e5] text-xs font-semibold uppercase tracking-[0.08em] text-[#404040] transition hover:bg-[#f5f5f5]"
+            >
+              {t.editClient}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="h-11 cursor-pointer text-xs font-semibold uppercase tracking-[0.08em] text-[#8a4329] transition hover:bg-[#fff5f2]"
+            >
+              {t.deleteClient}
+            </button>
+          </div>
+        )
+      ) : null}
+    </article>
+  );
+}
+
+function AdminClients({
+  appointments,
+  clients,
+  isLoading,
+  locale,
+  t,
+  onViewRequests,
+  onUpdateClient,
+  onDeleteClient,
+}: {
+  appointments: Appointment[];
+  clients: Client[];
+  isLoading: boolean;
+  locale: Locale;
+  t: Record<string, string>;
+  onViewRequests: (email: string) => void;
+  onUpdateClient: (id: string, input: { name: string; phone: string; notes: string }) => Promise<void>;
+  onDeleteClient: (id: string) => Promise<void>;
+}) {
+  const appointmentsByEmail = useMemo(() => {
+    const map = new Map<string, { count: number; lastVisit: string }>();
+    appointments.forEach((a) => {
+      const key = a.patientEmail.toLowerCase();
+      const current = map.get(key);
+      if (!current) {
+        map.set(key, { count: 1, lastVisit: a.startsAt });
+      } else {
+        current.count += 1;
+        if (a.startsAt > current.lastVisit) current.lastVisit = a.startsAt;
+      }
+    });
+    return map;
+  }, [appointments]);
 
   return (
     <section className="grid gap-4">
@@ -2532,27 +2759,23 @@ function AdminClients({
         </p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {clients.map((client) => (
-            <article key={client.key} className="border border-[#e5e5e5] bg-white">
-              <div className="p-4">
-                <h2 className="font-semibold text-[#111111]">{client.name}</h2>
-                <p className="mt-1 text-sm text-[#737373]">{client.email}</p>
-                {client.phone ? <p className="mt-1 text-sm text-[#737373]">{client.phone}</p> : null}
-                <p className="mt-3 text-sm font-semibold text-[#404040]">
-                  {client.count} {t.appointmentsLabel} · {formatDateTime(client.lastVisit, locale)}
-                </p>
-              </div>
-              <div className="border-t border-[#e5e5e5]">
-                <button
-                  type="button"
-                  onClick={() => onViewRequests(client.email)}
-                  className="h-11 w-full cursor-pointer text-sm font-semibold uppercase tracking-[0.08em] text-[#404040] transition hover:bg-[#f5f5f5]"
-                >
-                  {t.viewClientRequests}
-                </button>
-              </div>
-            </article>
-          ))}
+          {clients.map((client) => {
+            const stats = appointmentsByEmail.get(client.email.toLowerCase());
+            return (
+              <AdminClientCard
+                key={client.id}
+                client={client}
+                appointmentCount={stats?.count ?? 0}
+                lastVisit={stats?.lastVisit ?? null}
+                isLoading={isLoading}
+                locale={locale}
+                t={t}
+                onViewRequests={onViewRequests}
+                onUpdateClient={onUpdateClient}
+                onDeleteClient={onDeleteClient}
+              />
+            );
+          })}
         </div>
       )}
     </section>

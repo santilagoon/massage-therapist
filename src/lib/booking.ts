@@ -272,6 +272,10 @@ export const translations = {
     noClientsYet: "Todavia no hay clientes registrados.",
     appointmentsLabel: "turnos",
     viewClientRequests: "Ver solicitudes",
+    editClient: "Editar",
+    saveClient: "Guardar",
+    deleteClient: "Eliminar",
+    confirmDeleteClient: "¿Eliminar este cliente? Sus turnos no se borran.",
     incomePending:
       "Primer resumen de ingresos. En la próxima etapa sumaremos edición manual y gráficos mensuales.",
     dailyIncome: "Ingresos diarios",
@@ -517,6 +521,10 @@ export const translations = {
     noClientsYet: "No clients registered yet.",
     appointmentsLabel: "appointments",
     viewClientRequests: "View requests",
+    editClient: "Edit",
+    saveClient: "Save",
+    deleteClient: "Delete",
+    confirmDeleteClient: "Delete this client? Their appointments are not removed.",
     incomePending:
       "First income summary. In the next stage we will add manual entries and monthly charts.",
     dailyIncome: "Daily income",
@@ -763,6 +771,10 @@ export const translations = {
     noClientsYet: "Клиентов пока нет.",
     appointmentsLabel: "записей",
     viewClientRequests: "Посмотреть записи",
+    editClient: "Изменить",
+    saveClient: "Сохранить",
+    deleteClient: "Удалить",
+    confirmDeleteClient: "Удалить клиента? Записи не будут удалены.",
     incomePending:
       "Первичный обзор доходов. На следующем этапе добавим ручные записи и месячные графики.",
     dailyIncome: "Доход за день",
