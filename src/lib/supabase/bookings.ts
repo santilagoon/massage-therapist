@@ -617,18 +617,22 @@ export async function loadAdminClients(): Promise<Client[]> {
 
 export async function updateClient(
   id: string,
-  input: { name: string; phone: string; notes: string },
+  input: { name: string; email: string; phone: string; notes: string },
 ): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) throw new Error("Supabase is not configured.");
 
   const { error } = await withTimeout(
-    supabase.rpc("update_client", {
-      p_id: id,
-      p_name: input.name,
-      p_phone: input.phone,
-      p_notes: input.notes,
-    }),
+    supabase
+      .from("clients")
+      .update({
+        name: input.name.trim(),
+        email: input.email.trim().toLowerCase(),
+        phone: input.phone.trim() || null,
+        notes: input.notes.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id),
     "Supabase did not respond while updating the client.",
   );
 

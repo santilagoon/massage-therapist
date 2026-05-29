@@ -934,7 +934,9 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                 onUpdateClient={async (id, input) => {
                   await updateClient(id, input);
                   setClients((current) =>
-                    current.map((c) => (c.id === id ? { ...c, ...input, updatedAt: new Date().toISOString() } : c)),
+                    current.map((c) =>
+                      c.id === id ? { ...c, ...input, email: input.email.trim().toLowerCase(), updatedAt: new Date().toISOString() } : c,
+                    ),
                   );
                 }}
                 onDeleteClient={async (id) => {
@@ -1829,7 +1831,7 @@ function AdminPanel({
   }) => Promise<void>;
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
   onViewChange: (view: AdminView) => void;
-  onUpdateClient: (id: string, input: { name: string; phone: string; notes: string }) => Promise<void>;
+  onUpdateClient: (id: string, input: { name: string; email: string; phone: string; notes: string }) => Promise<void>;
   onDeleteClient: (id: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState<AdminFilter>("all");
@@ -2155,30 +2157,30 @@ function AdminDashboard({
     ["confirmed", "pending_approval"].includes(appointment.status),
   );
   return (
-    <section className="grid gap-8">
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+    <section className="grid gap-4 sm:gap-8">
+      <div className="flex items-center justify-between gap-3 xl:flex-row xl:items-start">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[#666666]">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.34em] text-[#666666] sm:text-xs">
             {t.adminEyebrow}
           </p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-normal text-[#111111]">
+          <h1 className="mt-1 text-2xl font-semibold tracking-normal text-[#111111] sm:mt-2 sm:text-4xl">
             {t.adminControlPanel}
           </h1>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex shrink-0 items-center gap-2">
           <AdminDateControls locale={locale} selectedDate={selectedDate} t={t} onDateChange={onDateChange} />
           <button
             type="button"
             onClick={() => void onRefresh()}
             disabled={isLoading}
-            className="h-11 cursor-pointer border border-[#d4d4d4] bg-white px-5 text-sm font-semibold uppercase tracking-[0.12em] text-[#404040] transition hover:border-[#111111] hover:text-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
+            className="hidden h-10 cursor-pointer border border-[#d4d4d4] bg-white px-4 text-xs font-semibold uppercase tracking-[0.12em] text-[#404040] transition hover:border-[#111111] hover:text-[#111111] disabled:cursor-not-allowed disabled:opacity-60 sm:block sm:h-11 sm:px-5 sm:text-sm"
           >
             {isLoading ? t.loading : t.refresh}
           </button>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <AdminKpiCard label={t.todayConfirmed} value={selectedDateConfirmed.length} suffix={t.sessionsUnit} />
         <AdminKpiCard label={t.todayPending} value={selectedDatePending.length} suffix={t.requestsUnit} />
         <AdminKpiCard label={t.dayAppointments} value={selectedDateActive.length} suffix={t.appointmentsUnit} inverted />
@@ -2265,21 +2267,21 @@ function AdminKpiCard({
   return (
     <article
       className={[
-        "border p-5",
+        "border p-3 sm:p-5",
         inverted ? "border-[#111111] bg-[#111111] text-white" : "border-[#d7d7d7] bg-white text-[#111111]",
       ].join(" ")}
     >
       <p className={[
-        "text-sm font-medium uppercase tracking-[0.04em]",
+        "text-[0.6rem] font-medium uppercase tracking-[0.04em] sm:text-sm",
         inverted ? "text-white/60" : "text-[#666666]",
       ].join(" ")}
       >
         {label}
       </p>
-      <div className="mt-8 flex items-end gap-3">
-        <span className="text-5xl font-light tabular-nums leading-none">{String(value).padStart(2, "0")}</span>
+      <div className="mt-2 flex items-end gap-1 sm:mt-8 sm:gap-3">
+        <span className="text-3xl font-light tabular-nums leading-none sm:text-5xl">{String(value).padStart(2, "0")}</span>
         <span className={[
-          "pb-1 text-sm font-medium uppercase tracking-[0.04em]",
+          "pb-0.5 text-[0.6rem] font-medium uppercase tracking-[0.04em] sm:pb-1 sm:text-sm",
           inverted ? "text-white/65" : "text-[#666666]",
         ].join(" ")}
         >
@@ -2555,20 +2557,21 @@ function AdminClientCard({
   locale: Locale;
   t: Record<string, string>;
   onViewRequests: (email: string) => void;
-  onUpdateClient: (id: string, input: { name: string; phone: string; notes: string }) => Promise<void>;
+  onUpdateClient: (id: string, input: { name: string; email: string; phone: string; notes: string }) => Promise<void>;
   onDeleteClient: (id: string) => Promise<void>;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [form, setForm] = useState({
     name: client.name,
+    email: client.email,
     phone: client.phone,
     notes: client.notes,
   });
 
   async function handleSave() {
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || !form.email.trim()) return;
     setIsSaving(true);
     try {
       await onUpdateClient(client.id, form);
@@ -2584,103 +2587,99 @@ function AdminClientCard({
       await onDeleteClient(client.id);
     } finally {
       setIsSaving(false);
-      setConfirmDelete(false);
+      setShowDeleteModal(false);
     }
   }
 
   return (
-    <article className="border border-[#e5e5e5] bg-white">
-      {isEditing ? (
-        <div className="grid gap-3 p-4">
-          <div className="grid gap-1">
-            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-[#737373]">
-              {t.fullName}
-            </label>
-            <input
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="h-10 w-full border border-[#d4d4d4] bg-white px-3 text-sm outline-none focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
-            />
-          </div>
-          <div className="grid gap-1">
-            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-[#737373]">
-              {t.phone}
-            </label>
-            <input
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              className="h-10 w-full border border-[#d4d4d4] bg-white px-3 text-sm outline-none focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
-            />
-          </div>
-          <div className="grid gap-1">
-            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-[#737373]">
-              {t.notes}
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={2}
-              className="w-full resize-none border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => { setIsEditing(false); setForm({ name: client.name, phone: client.phone, notes: client.notes }); }}
-              className="h-10 cursor-pointer border border-[#d4d4d4] text-sm font-semibold text-[#404040] transition hover:border-[#111111]"
-            >
-              {t.close}
-            </button>
-            <button
-              type="button"
-              disabled={isSaving || !form.name.trim()}
-              onClick={handleSave}
-              className="h-10 cursor-pointer bg-[#111111] text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:opacity-50"
-            >
-              {isSaving ? t.loading : t.saveClient}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h2 className="truncate font-semibold text-[#111111]">{client.name}</h2>
-              <p className="mt-1 text-sm text-[#737373]">{client.email}</p>
-              {client.phone ? <p className="mt-0.5 text-sm text-[#737373]">{client.phone}</p> : null}
-              {client.notes ? <p className="mt-2 text-sm italic text-[#737373]">{client.notes}</p> : null}
+    <>
+      {showDeleteModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <p className="text-center font-semibold text-[#111111]">{client.name}</p>
+            <p className="mt-2 text-center text-sm text-[#737373]">{t.confirmDeleteClient}</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="h-11 cursor-pointer rounded-xl border border-[#d4d4d4] text-sm font-semibold text-[#404040] transition hover:border-[#111111]"
+              >
+                {t.close}
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={handleDelete}
+                className="h-11 cursor-pointer rounded-xl bg-[#8a4329] text-sm font-semibold text-white transition hover:bg-[#6e3521] disabled:opacity-50"
+              >
+                {isSaving ? t.loading : t.deleteClient}
+              </button>
             </div>
           </div>
-          <p className="mt-3 text-sm font-semibold text-[#404040]">
-            {appointmentCount} {t.appointmentsLabel}
-            {lastVisit ? ` · ${formatDateTime(lastVisit, locale)}` : ""}
-          </p>
         </div>
-      )}
+      ) : null}
 
-      {!isEditing ? (
-        confirmDelete ? (
-          <div className="border-t border-[#e5e5e5] p-3">
-            <p className="mb-2 text-center text-xs text-[#737373]">{t.confirmDeleteClient}</p>
+      <article className="border border-[#e5e5e5] bg-white">
+        {isEditing ? (
+          <div className="grid gap-3 p-4">
+            {(["name", "email", "phone", "notes"] as const).map((field) => (
+              <div key={field} className="grid gap-1">
+                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-[#737373]">
+                  {t[field === "name" ? "fullName" : field === "phone" ? "phone" : field === "email" ? "email" : "notes"]}
+                </label>
+                {field === "notes" ? (
+                  <textarea
+                    value={form[field]}
+                    onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
+                    rows={2}
+                    className="w-full resize-none border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
+                  />
+                ) : (
+                  <input
+                    type={field === "email" ? "email" : "text"}
+                    value={form[field]}
+                    onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
+                    className="h-10 w-full border border-[#d4d4d4] bg-white px-3 text-sm outline-none focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
+                  />
+                )}
+              </div>
+            ))}
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setConfirmDelete(false)}
+                onClick={() => { setIsEditing(false); setForm({ name: client.name, email: client.email, phone: client.phone, notes: client.notes }); }}
                 className="h-10 cursor-pointer border border-[#d4d4d4] text-sm font-semibold text-[#404040] transition hover:border-[#111111]"
               >
                 {t.close}
               </button>
               <button
                 type="button"
-                disabled={isSaving || isLoading}
-                onClick={handleDelete}
-                className="h-10 cursor-pointer bg-[#8a4329] text-sm font-semibold text-white transition hover:bg-[#6e3521] disabled:opacity-50"
+                disabled={isSaving || !form.name.trim() || !form.email.trim()}
+                onClick={handleSave}
+                className="h-10 cursor-pointer bg-[#111111] text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:opacity-50"
               >
-                {isSaving ? t.loading : t.deleteClient}
+                {isSaving ? t.loading : t.saveClient}
               </button>
             </div>
           </div>
         ) : (
+          <div className="p-4">
+            <h2 className="truncate font-semibold text-[#111111]">{client.name}</h2>
+            <p className="mt-1 text-sm text-[#737373]">{client.email}</p>
+            {client.phone ? <p className="mt-0.5 text-sm text-[#737373]">{client.phone}</p> : null}
+            {client.notes ? <p className="mt-2 text-sm italic text-[#737373]">{client.notes}</p> : null}
+            <p className="mt-3 text-sm font-semibold text-[#404040]">
+              {appointmentCount} {t.appointmentsLabel}
+              {lastVisit ? ` · ${formatDateTime(lastVisit, locale)}` : ""}
+            </p>
+          </div>
+        )}
+
+        {!isEditing ? (
           <div className="grid grid-cols-3 border-t border-[#e5e5e5]">
             <button
               type="button"
@@ -2698,15 +2697,15 @@ function AdminClientCard({
             </button>
             <button
               type="button"
-              onClick={() => setConfirmDelete(true)}
+              onClick={() => setShowDeleteModal(true)}
               className="h-11 cursor-pointer text-xs font-semibold uppercase tracking-[0.08em] text-[#8a4329] transition hover:bg-[#fff5f2]"
             >
               {t.deleteClient}
             </button>
           </div>
-        )
-      ) : null}
-    </article>
+        ) : null}
+      </article>
+    </>
   );
 }
 
@@ -2726,7 +2725,7 @@ function AdminClients({
   locale: Locale;
   t: Record<string, string>;
   onViewRequests: (email: string) => void;
-  onUpdateClient: (id: string, input: { name: string; phone: string; notes: string }) => Promise<void>;
+  onUpdateClient: (id: string, input: { name: string; email: string; phone: string; notes: string }) => Promise<void>;
   onDeleteClient: (id: string) => Promise<void>;
 }) {
   const appointmentsByEmail = useMemo(() => {
