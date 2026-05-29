@@ -129,6 +129,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [busyAppointments, setBusyAppointments] = useState<Appointment[]>([]);
   const [adminUser, setAdminUser] = useState<User | null>(null);
+  const [clientUser, setClientUser] = useState<User | null>(null);
   const [isAdminUserMenuOpen, setIsAdminUserMenuOpen] = useState(false);
   const [isLoadingRemote, setIsLoadingRemote] = useState(isSupabaseConfigured);
   const [isLoadingAdmin, setIsLoadingAdmin] = useState(false);
@@ -288,6 +289,10 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         const account = await getCurrentUser();
         if (cancelled || !account) {
           return;
+        }
+
+        if (!cancelled) {
+          setClientUser(account);
         }
 
         let previousAppointments: ClientAppointment[] = [];
@@ -987,10 +992,13 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
             <div className="flex items-center gap-2">
               {!adminUser && !isAdminPage ? (
                 <a
-                  href="/admin"
-                  title={t.loginAdmin}
-                  aria-label={t.loginAdmin}
-                  className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
+                  href="/cuenta"
+                  title={clientUser ? t.adminProfile : t.loginAdmin}
+                  aria-label={clientUser ? t.adminProfile : t.loginAdmin}
+                  className={[
+                    "group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border bg-white text-[#111111] transition hover:bg-[#fafafa]",
+                    clientUser ? "border-[#111111]" : "border-[#d4d4d4]",
+                  ].join(" ")}
                 >
                   <UserIcon />
                 </a>
