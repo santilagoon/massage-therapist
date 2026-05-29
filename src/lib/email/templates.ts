@@ -1,4 +1,8 @@
-import { AppointmentStatusEmailPayload, EmailAppointmentPayload } from "./types";
+import {
+  AppointmentStatusEmailPayload,
+  EmailAppointmentPayload,
+  GroupedAppointmentEmailPayload,
+} from "./types";
 
 const argentinaFormatter = new Intl.DateTimeFormat("es-AR", {
   dateStyle: "full",
@@ -30,6 +34,42 @@ export function therapistRequestReceivedEmail(payload: EmailAppointmentPayload) 
     html: baseEmailHtml({
       title: "Nueva solicitud de turno",
       intro: "Hay una nueva solicitud pendiente de aprobacion en el panel.",
+      payload,
+      includePatientContact: true,
+    }),
+  };
+}
+
+/**
+ * Por que existe: confirma en un solo email los turnos mensuales que quedaron
+ * guardados y los horarios que ya no estaban disponibles.
+ * @returns Asunto y HTML del resumen dirigido al paciente.
+ * Efectos secundarios: ninguno.
+ */
+export function patientGroupedRequestReceivedEmail(payload: GroupedAppointmentEmailPayload) {
+  return {
+    subject: "Solicitud de turnos recibida",
+    html: groupedEmailHtml({
+      title: "Solicitud de turnos recibida",
+      intro:
+        "Guardamos los horarios disponibles de tu solicitud. Cada turno queda pendiente de confirmacion profesional.",
+      payload,
+    }),
+  };
+}
+
+/**
+ * Por que existe: presenta a la profesional una solicitud mensual agrupada
+ * manteniendo cada turno aprobable individualmente en el panel.
+ * @returns Asunto y HTML del resumen dirigido a la profesional.
+ * Efectos secundarios: ninguno.
+ */
+export function therapistGroupedRequestReceivedEmail(payload: GroupedAppointmentEmailPayload) {
+  return {
+    subject: `Nueva solicitud de varios turnos: ${payload.patientName}`,
+    html: groupedEmailHtml({
+      title: "Nueva solicitud de varios turnos",
+      intro: "Los turnos guardados estan pendientes de aprobacion individual en el panel.",
       payload,
       includePatientContact: true,
     }),
@@ -120,6 +160,70 @@ function baseEmailHtml({
             <p style="font-size: 13px; color: #6b6259;">Desde ese enlace podes ver el detalle y cancelar la solicitud si lo necesitás.</p>`
           : ""
       }
+    </div>
+  `;
+}
+
+/**
+ * Por que existe: comparte el formato de los emails de solicitudes multiples.
+ * @returns HTML seguro con turnos guardados y omitidos.
+ * Efectos secundarios: ninguno.
+ */
+function groupedEmailHtml({
+  title,
+  intro,
+  payload,
+  includePatientContact = false,
+}: {
+  title: string;
+  intro: string;
+  payload: GroupedAppointmentEmailPayload;
+  includePatientContact?: boolean;
+}) {
+  const savedItems = payload.appointments
+    .map(
+      (appointment) =>
+        `<li style="margin-bottom: 8px;"><strong>${escapeHtml(
+          appointment.serviceTitle,
+        )}</strong> - ${escapeHtml(argentinaFormatter.format(new Date(appointment.startsAt)))}${
+          appointment.appointmentUrl
+            ? ` - <a href="${escapeHtml(appointment.appointmentUrl)}">Abrir turno</a>`
+            : ""
+        }</li>`,
+    )
+    .join("");
+  const unavailableItems = payload.unavailableStartsAt
+    .map(
+      (startsAt) =>
+        `<li style="margin-bottom: 8px;">${escapeHtml(
+          argentinaFormatter.format(new Date(startsAt)),
+        )}</li>`,
+    )
+    .join("");
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #24211d; line-height: 1.5;">
+      <h1 style="font-size: 22px; margin-bottom: 12px;">${escapeHtml(title)}</h1>
+      <p>${escapeHtml(intro)}</p>
+      ${
+        includePatientContact
+          ? `<div style="margin-top: 16px;">
+              <p><strong>Paciente:</strong> ${escapeHtml(payload.patientName)}</p>
+              <p><strong>Email:</strong> ${escapeHtml(payload.patientEmail)}</p>
+              <p><strong>Telefono:</strong> ${escapeHtml(payload.patientPhone || "-")}</p>
+            </div>`
+          : ""
+      }
+      <div style="margin-top: 20px; padding: 16px; border: 1px solid #d9d0c3; border-radius: 8px; background: #f6f3ee;">
+        <p><strong>Turnos guardados (${payload.appointments.length}):</strong></p>
+        <ul style="padding-left: 20px;">${savedItems}</ul>
+        ${
+          unavailableItems
+            ? `<p style="margin-top: 16px;"><strong>No disponibles (${payload.unavailableStartsAt.length}):</strong></p>
+               <ul style="padding-left: 20px;">${unavailableItems}</ul>`
+            : ""
+        }
+      </div>
     </div>
   `;
 }

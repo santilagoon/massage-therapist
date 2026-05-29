@@ -4,18 +4,39 @@ import {
   patientRequestReceivedEmail,
   therapistRequestReceivedEmail,
 } from "@/lib/email/templates";
-import { EmailAppointmentPayload } from "@/lib/email/types";
+import {
+  readNotificationInput,
+  verifyNotificationAppointment,
+} from "@/lib/notifications/server";
 
 export async function POST(request: Request) {
-  const payload = (await request.json()) as EmailAppointmentPayload;
-  const config = getEmailConfig();
+  const input = await readNotificationInput(request);
+  if (!input || input.status !== undefined) {
+    return NextResponse.json(
+      { ok: false, error: "Invalid notification request." },
+      { status: 400 },
+    );
+  }
 
+  const config = getEmailConfig();
   if (!config.isConfigured || !config.therapistEmail) {
     return NextResponse.json(
       { ok: false, error: "Email notifications are unavailable." },
       { status: 503 },
     );
   }
+
+  const verified = await verifyNotificationAppointment(
+    request,
+    input,
+    "pending_approval",
+    "requested",
+  );
+  if ("response" in verified) {
+    return verified.response;
+  }
+
+  const payload = verified.payload;
 
   const patientEmail = patientRequestReceivedEmail(payload);
   const therapistEmail = therapistRequestReceivedEmail(payload);
