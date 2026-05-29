@@ -1,6 +1,6 @@
 # Project Recovery - Maria Mikhailova Booking App
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 This file is the recovery memory for the project. Use it when opening a new chat, onboarding a collaborator, restoring context after closing Codex, or checking what has already been decided.
 
@@ -13,6 +13,27 @@ This is a custom appointment booking web app for Maria Mikhailova, a therapeutic
 The public goal is simple: a patient can request a massage appointment online without contacting Maria directly through WhatsApp, Telegram, or phone.
 
 The business rule is that appointments are not instantly confirmed. A patient submits a request, the slot becomes unavailable, and Maria later confirms, rejects, or cancels it from the admin panel.
+
+## Platform Roadmap And Differentiators
+
+The long-term product is a configurable booking platform for appointment-based businesses, not only massage therapists. Target verticals include massage therapists, personal trainers, barber shops, spas, wellness professionals, clinics, beauty services, and other local service businesses.
+
+Strategic direction:
+
+- Avoid becoming an agency that builds one custom website per client.
+- Build self-service onboarding, reusable templates, dynamic branding, configurable landing pages, and whitelabel domain support.
+- Keep Maria Mikhailova as the first live and whitelabel reference implementation.
+
+Differentiators to build:
+
+- Google Places Autocomplete for address capture, starting with Buenos Aires.
+- Online payments, with Mercado Pago as the Argentina-first option and Binance Pay or crypto evaluated as an optional advanced integration.
+- Admin self-management for services, durations, ARS/USD prices, active/inactive status, schedules, blocks, landing copy, colors, photos, business notices such as "hoy y manana cerrado por feriado", social links, phone/contact data, and business profile.
+- Client portal with pending, confirmed, cancelled, and completed appointment history, plus self-service cancellation/modification where allowed.
+- FAQ chatbot on the public landing and client portal, based on questions and answers configured by the business.
+- Admin AI assistant that can answer questions about appointments, clients, income, occupancy, and business trends using platform data.
+- Pricing tiers, paid whitelabel/custom-domain options, and subscription monetization.
+- SEO, Meta, Google indexing, advertising, and moderation setup for the platform and individual businesses.
 
 ## Main URLs
 
@@ -40,6 +61,14 @@ Use this folder for future local commands and references. Older generated folder
 - Deployment: Vercel connected to GitHub
 - Timezone expectation: `America/Argentina/Buenos_Aires`
 
+## Local Codex Tooling
+
+- Supabase CLI is installed and logged in locally.
+- Google Stitch MCP is configured locally in `~/.codex/config.toml` as `stitch`.
+- Stitch MCP URL: `https://stitch.googleapis.com/mcp`
+- Stitch uses the `X-Goog-Api-Key` HTTP header. The key must stay only in local config or a secret manager; never commit it to the repo or paste it into this recovery file.
+- If a running Codex session cannot see Stitch tools after the config is added, restart Codex/VS Code and open a new session from the project path.
+
 ## Current Implemented Flows
 
 ### Public Booking
@@ -64,13 +93,13 @@ Current important statuses:
 
 - `pending_approval`: request created, waiting for Maria.
 - `confirmed`: Maria accepted the appointment.
-- `rejected`: Maria rejected the request.
+- `declined`: Maria rejected the request.
 - `cancelled`: appointment was cancelled.
 
 Busy-slot behavior:
 
 - `pending_approval` and `confirmed` block the selected time slot.
-- `cancelled` and `rejected` free the slot again.
+- `cancelled` and `declined` free the slot again.
 
 ### Public Appointment Request
 

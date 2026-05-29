@@ -20,12 +20,15 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   AvailabilityBlock,
+  ClientAppointment,
   createAdminBlock,
   loadAdminBlocks,
   loadAdminAppointments,
   loadBusyAppointments,
+  loadClientAppointments,
   loadRemoteServices,
   requestRemoteAppointment,
+  requestRemoteAppointmentGroup,
   updateRemoteAppointmentStatus,
 } from "@/lib/supabase/bookings";
 import {
@@ -44,6 +47,7 @@ import {
 } from "@/lib/supabase/auth";
 import {
   notifyAppointmentRequested,
+  notifyGroupedAppointmentsRequested,
   notifyAppointmentStatus,
 } from "@/lib/notifications/appointments";
 
@@ -75,10 +79,12 @@ type BookingFormErrors = Partial<Record<BookingFormField, string>>;
 type SubmittedRequestDetails = {
   address: string;
   appointment: Appointment;
+  appointments: Appointment[];
   emailDelivery: "failed" | "pending" | "sent";
   placeLabel: string;
   priceLabel: string;
   serviceTitle: string;
+  unavailableSlots: string[];
 };
 
 const phoneCountries = [
@@ -94,15 +100,17 @@ const phoneCountries = [
 
 export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   const isAdminPage = mode === "admin";
+  const isLocalDemoMode =
+    process.env.NODE_ENV === "development" && !isSupabaseConfigured();
   const [locale, setLocale] = useState<Locale>("es");
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("ARS");
   const [adminView, setAdminView] = useState<AdminView>("panel");
   const [availableServices, setAvailableServices] = useState(fallbackServices);
   const [serviceId, setServiceId] = useState(fallbackServices[0].id);
   const [date, setDate] = useState(getInitialDate);
-  const [slot, setSlot] = useState("");
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() || !isLocalDemoMode) {
       return [];
     }
 
@@ -157,12 +165,12 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
   );
 
   useEffect(() => {
-    if (remoteMode) {
+    if (remoteMode || !isLocalDemoMode) {
       return;
     }
 
     window.localStorage.setItem(storageKey, JSON.stringify(appointments));
-  }, [appointments, remoteMode]);
+  }, [appointments, isLocalDemoMode, remoteMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +179,9 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       if (!isSupabaseConfigured()) {
         setIsLoadingRemote(false);
         setRemoteMode(false);
+        if (!isLocalDemoMode) {
+          setNotice(t.localMode);
+        }
         return;
       }
 
@@ -206,7 +217,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     return () => {
       cancelled = true;
     };
-  }, [t.localMode]);
+  }, [isLocalDemoMode, t.localMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -243,7 +254,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     [blockingAppointments, date, selectedService],
   );
 
-  const selectedSlot = availableSlots.includes(slot) ? slot : "";
+  const selectedSlot = selectedSlots[0] ?? "";
   const dateOptions = useMemo(() => getDateOptions(12), []);
 
   useEffect(() => {
@@ -265,6 +276,45 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         const account = await getCurrentUser();
         if (!cancelled && account) {
           window.location.replace("/cuenta");
+        }
+      }
+
+      if (!isAdminPage && !admin) {
+        const account = await getCurrentUser();
+        if (cancelled || !account) {
+          return;
+        }
+
+        let previousAppointments: ClientAppointment[] = [];
+        try {
+          previousAppointments = await loadClientAppointments();
+        } catch (error) {
+          logTechnicalError(error);
+        }
+
+        if (!cancelled) {
+          const previousAppointment = previousAppointments[0];
+          const parsedPhone = splitStoredPhone(previousAppointment?.patientPhone ?? "");
+          const accountName = [
+            account.user_metadata?.first_name,
+            account.user_metadata?.last_name,
+          ]
+            .filter((part): part is string => typeof part === "string" && part.length > 0)
+            .join(" ");
+          setForm((current) => ({
+            ...current,
+            patientName:
+              current.patientName ||
+              previousAppointment?.patientName ||
+              account.user_metadata?.full_name ||
+              accountName ||
+              "",
+            patientEmail: current.patientEmail || account.email || "",
+            phoneCountryCode: current.patientPhone
+              ? current.phoneCountryCode
+              : parsedPhone.countryCode,
+            patientPhone: current.patientPhone || parsedPhone.phone,
+          }));
         }
       }
     }
@@ -335,6 +385,12 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       return;
     }
 
+    const usesRemoteBooking = remoteMode && isSupabaseConfigured();
+    if (!usesRemoteBooking && !isLocalDemoMode) {
+      setNotice(t.localMode);
+      return;
+    }
+
     const notesWithPlace = buildAppointmentNotes({
       address: appointmentAddress,
       notes: form.notes,
@@ -355,19 +411,44 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         notes: notesWithPlace,
       };
 
-      const appointment =
-        remoteMode && isSupabaseConfigured()
-          ? await requestRemoteAppointment(appointmentInput)
-          : createAppointment(appointmentInput);
+      let createdAppointments: Appointment[];
+      let unavailableSlots: string[] = [];
+      let requestPublicToken = "";
 
-      setAppointments((current) => [appointment, ...current]);
+      if (usesRemoteBooking && selectedSlots.length > 1) {
+        const groupedResult = await requestRemoteAppointmentGroup({
+          ...appointmentInput,
+          startsAt: selectedSlots,
+        });
+        createdAppointments = groupedResult.appointments;
+        unavailableSlots = groupedResult.unavailableStartsAt;
+        requestPublicToken = groupedResult.requestPublicToken;
+      } else if (usesRemoteBooking) {
+        createdAppointments = [await requestRemoteAppointment(appointmentInput)];
+      } else {
+        createdAppointments = selectedSlots.map((startsAt) =>
+          createAppointment({ ...appointmentInput, startsAt }),
+        );
+      }
+
+      const appointment = createdAppointments[0];
+      if (!appointment) {
+        setSelectedSlots([]);
+        setNotice(t.allSlotsUnavailable);
+        void refreshBusySlots(date);
+        return;
+      }
+
+      setAppointments((current) => [...createdAppointments, ...current]);
       setSubmittedRequest({
         address: appointmentAddress,
         appointment,
-        emailDelivery: remoteMode ? "pending" : "failed",
+        appointments: createdAppointments,
+        emailDelivery: usesRemoteBooking ? "pending" : "failed",
         placeLabel: getAppointmentPlaceLabel(form.appointmentPlace, t),
         priceLabel: formatServicePrice(selectedService, locale, t, displayCurrency),
         serviceTitle: selectedService.title[locale],
+        unavailableSlots,
       });
       setForm({
         patientName: "",
@@ -383,10 +464,14 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       });
       setFormErrors({});
       setNotice("");
-      setSlot("");
+      setSelectedSlots([]);
 
-      if (remoteMode) {
-        void notifyAppointmentRequested(appointment, selectedService, locale)
+      if (usesRemoteBooking) {
+        const notification = requestPublicToken
+          ? notifyGroupedAppointmentsRequested(requestPublicToken)
+          : notifyAppointmentRequested(appointment);
+
+        void notification
           .then(() => {
             setSubmittedRequest((current) =>
               current?.appointment.id === appointment.id
@@ -412,6 +497,42 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     }
   }
 
+  async function submitContact(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const payload = {
+      name: contactForm.name.trim(),
+      email: contactForm.email.trim().toLowerCase(),
+      message: contactForm.message.trim(),
+    };
+
+    if (!payload.name || !payload.email || !payload.message || isSendingContact) {
+      return;
+    }
+
+    setIsSendingContact(true);
+    setContactNotice("");
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Contact request failed.");
+      }
+
+      setContactForm({ name: "", email: "", message: "" });
+      setContactNotice(t.contactSuccess);
+    } catch (error) {
+      logTechnicalError(error);
+      setContactNotice(t.contactError);
+    } finally {
+      setIsSendingContact(false);
+    }
+  }
+
   async function loadAdminData() {
     if (!remoteMode || !adminUser) {
       return;
@@ -426,6 +547,20 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
       setNotice(t.systemError);
     } finally {
       setIsLoadingAdmin(false);
+    }
+  }
+
+  async function refreshAdminData() {
+    const remoteAppointments = await loadAdminAppointments();
+    setAppointments(remoteAppointments);
+
+    try {
+      const remoteBlocks = await loadAdminBlocks();
+      setAvailabilityBlocks(remoteBlocks);
+    } catch (error) {
+      setAvailabilityBlocks([]);
+      logTechnicalError(error);
+      setNotice("");
     }
   }
 
@@ -562,43 +697,35 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     }
   }
 
+  function openAdminAccess() {
+    if (adminUser) {
+      setIsAdminUserMenuOpen((current) => !current);
+      return;
+    }
+
+    if (isAdminPage) {
+      return;
+    }
+
+    window.location.href = "/cuenta";
+  }
+
+  async function logoutFromUserMenu() {
+    setIsAdminUserMenuOpen(false);
+    await handleAdminLogout();
+  }
+
   async function handleAdminLogout() {
     await signOutAdmin();
     setAdminUser(null);
     setAppointments([]);
     setAvailabilityBlocks([]);
     setNotice("");
-    if (isAdminPage) {
+    setIsAdminUserMenuOpen(false);
+
+    if (isAdminPage && typeof window !== "undefined") {
       window.location.href = "/";
     }
-  }
-
-  async function refreshAdminData() {
-    const remoteAppointments = await loadAdminAppointments();
-    setAppointments(remoteAppointments);
-
-    try {
-      const remoteBlocks = await loadAdminBlocks();
-      setAvailabilityBlocks(remoteBlocks);
-    } catch (error) {
-      setAvailabilityBlocks([]);
-      logTechnicalError(error);
-      setNotice("");
-    }
-  }
-
-  function openAdminAccess() {
-    if (isAdminPage && adminUser) {
-      setIsAdminUserMenuOpen((current) => !current);
-      return;
-    }
-
-    window.location.href = isAdminPage ? "/admin" : "/cuenta";
-  }
-
-  async function logoutFromUserMenu() {
-    setIsAdminUserMenuOpen(false);
-    await handleAdminLogout();
   }
 
   async function handleCreateBlock(input: {
@@ -630,176 +757,167 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
     }
   }
 
+  async function updateStatus(id: string, status: AppointmentStatus) {
+    if (!remoteMode || !adminUser) {
+      setNotice(t.adminLoginRequired);
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    try {
+      const updatedAppointment = await updateRemoteAppointmentStatus(id, status);
+      setAppointments((current) =>
+        current.map((appointment) =>
+          appointment.id === id ? updatedAppointment : appointment,
+        ),
+      );
+      setNotice(t.adminUpdated);
+      if (status === "confirmed" || status === "declined") {
+        void notifyAppointmentStatus(updatedAppointment, status).catch(() => {
+          setNotice(t.emailSkipped);
+        });
+      }
+      void refreshBusySlots(date);
+    } catch (error) {
+      logTechnicalError(error);
+      setNotice(t.systemError);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  }
+
   useEffect(() => {
     if (isAdminPage && adminUser && remoteMode && appointments.length === 0) {
       void loadAdminData();
     }
   }, [adminUser, appointments.length, isAdminPage, remoteMode]);
 
-  async function updateStatus(id: string, status: AppointmentStatus) {
-    if (remoteMode && adminUser) {
-      setIsUpdatingStatus(true);
-      try {
-        const updatedAppointment = await updateRemoteAppointmentStatus(id, status);
-        setAppointments((current) =>
-          current.map((appointment) =>
-            appointment.id === id ? updatedAppointment : appointment,
-          ),
-        );
-        setNotice(t.adminUpdated);
-        if (status === "confirmed" || status === "declined") {
-          const service = findServiceInList(updatedAppointment.serviceId, availableServices);
-          void notifyAppointmentStatus(updatedAppointment, service, locale, status).catch(() => {
-            setNotice(t.emailSkipped);
-          });
-        }
-        void refreshBusySlots(date);
-      } catch (error) {
-        logTechnicalError(error);
-        setNotice(t.systemError);
-      } finally {
-        setIsUpdatingStatus(false);
-      }
-      return;
-    }
-
-    setAppointments((current) =>
-      current.map((appointment) =>
-        appointment.id === id ? { ...appointment, status } : appointment,
-      ),
-    );
-  }
-
-  async function submitContact(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (isSendingContact) {
-      return;
-    }
-
-    setIsSendingContact(true);
-    setContactNotice("");
-
-    try {
-      const response = await fetch("/api/contact", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(contactForm),
-      });
-
-      if (!response.ok) {
-        throw new Error("Contact email could not be sent.");
-      }
-
-      setContactForm({ name: "", email: "", message: "" });
-      setContactNotice(t.contactSuccess);
-    } catch {
-      setContactNotice(t.contactError);
-    } finally {
-      setIsSendingContact(false);
-    }
-  }
+  const adminNotice =
+    notice &&
+    notice !== t.adminLoaded &&
+    notice !== t.remoteReady &&
+    notice !== t.adminLoginRequired
+      ? notice
+      : "";
 
   if (isAdminPage) {
-    const adminNotice =
-      notice &&
-      notice !== t.adminLoaded &&
-      notice !== t.remoteReady &&
-      notice !== t.adminLoginRequired
-        ? notice
-        : "";
-
     return (
-      <main className="min-h-screen bg-white text-[#111111]">
-        <section className="mx-auto flex min-h-screen w-full flex-col">
-          <header className="sticky top-0 z-10 border-b border-[#e5e5e5] bg-white/95 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-              <a href="/" className="text-sm font-semibold tracking-[0.12em] text-[#111111]">
-                MM
-              </a>
-              {adminUser ? (
-                <AdminTopNav adminView={adminView} t={t} onViewChange={setAdminView} />
-              ) : (
-                <div className="flex-1" />
-              )}
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={openAdminAccess}
-                    title={adminUser ? t.logout : t.loginAdmin}
-                    aria-label={adminUser ? t.logout : t.loginAdmin}
-                    aria-expanded={adminUser ? isAdminUserMenuOpen : undefined}
-                    className="group flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
-                  >
-                    <UserIcon />
-                    {!adminUser ? (
-                      <span className="pointer-events-none absolute right-0 top-12 hidden rounded-lg bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white shadow-sm group-hover:block">
-                        {t.loginAdmin}
-                      </span>
-                    ) : null}
-                  </button>
-                  {adminUser && isAdminUserMenuOpen ? (
-                    <div className="absolute right-0 top-12 z-20 min-w-28 rounded-xl border border-[#e5e5e5] bg-white p-1 shadow-lg">
-                      <button
-                        type="button"
-                        onClick={() => void logoutFromUserMenu()}
-                        className="h-9 w-full cursor-pointer rounded-lg px-3 text-left text-sm font-semibold text-[#8a4329] transition hover:bg-[#fff7f2]"
-                      >
-                        {t.logout}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <label className="sr-only" htmlFor="admin-language">
-                  {t.language}
-                </label>
-                <select
-                  id="admin-language"
-                  value={locale}
-                  onChange={(event) => setLocale(event.target.value as Locale)}
-                  className="h-10 cursor-pointer rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
-                >
-                  {locales.map((item) => (
-                    <option key={item} value={item}>
-                      {item.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </header>
-
-          <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:py-10">
-            {adminNotice && adminUser ? (
-              <p className="mx-auto w-full max-w-sm rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm font-medium text-[#404040]">
-                {adminNotice}
-              </p>
-            ) : null}
-            <AdminPanel
+      <main className="min-h-screen bg-[#f5f5f5] text-[#111111]">
+        <section
+          className={[
+            "min-h-screen w-full",
+            adminUser ? "lg:grid lg:grid-cols-[240px_minmax(0,1fr)]" : "flex flex-col",
+          ].join(" ")}
+        >
+          {adminUser ? (
+            <AdminSideNav
               adminView={adminView}
-              appointments={appointments}
-              availabilityBlocks={availabilityBlocks}
-              services={availableServices}
-              adminUser={adminUser}
-              isLoading={isLoadingAdmin || isUpdatingStatus}
-              locale={locale}
               t={t}
-              notice={adminNotice}
-              onLogin={handleAdminLogin}
-              onRegister={handleAccountRegister}
-              onResendSignup={handleResendSignup}
-              onSendRecovery={handleSendRecovery}
-              onUpdatePassword={handleUpdatePassword}
-              onVerifyRecovery={handleVerifyRecovery}
-              onVerifySignup={handleVerifySignup}
-              onGoogleLogin={handleGoogleLogin}
+              userEmail={adminUser.email ?? ""}
               onLogout={handleAdminLogout}
-              onRefresh={loadAdminData}
-              onCreateBlock={handleCreateBlock}
-              onStatusChange={updateStatus}
+              onViewChange={setAdminView}
             />
+          ) : null}
+
+          <div className="min-w-0">
+            <header
+              className={[
+                "sticky top-0 z-20 border-b border-[#dedede] bg-[#f5f5f5]/95 backdrop-blur",
+                adminUser ? "lg:hidden" : "",
+              ].join(" ")}
+            >
+              <div className="flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6">
+                <a href="/" className="shrink-0 text-sm font-semibold tracking-[0.16em] text-[#111111]">
+                  MM
+                </a>
+                {adminUser ? (
+                  <AdminTopNav adminView={adminView} t={t} onViewChange={setAdminView} />
+                ) : (
+                  <div className="flex-1" />
+                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={openAdminAccess}
+                      title={adminUser ? t.logout : t.loginAdmin}
+                      aria-label={adminUser ? t.logout : t.loginAdmin}
+                      aria-expanded={adminUser ? isAdminUserMenuOpen : undefined}
+                      className="group flex h-10 w-10 cursor-pointer items-center justify-center border border-[#d4d4d4] bg-white text-[#111111] transition hover:bg-[#fafafa]"
+                    >
+                      <UserIcon />
+                      {!adminUser ? (
+                        <span className="pointer-events-none absolute right-0 top-12 hidden bg-[#111111] px-3 py-1.5 text-xs font-semibold text-white group-hover:block">
+                          {t.loginAdmin}
+                        </span>
+                      ) : null}
+                    </button>
+                    {adminUser && isAdminUserMenuOpen ? (
+                      <div className="absolute right-0 top-12 z-20 min-w-28 border border-[#e5e5e5] bg-white p-1">
+                        <button
+                          type="button"
+                          onClick={() => void logoutFromUserMenu()}
+                          className="h-9 w-full cursor-pointer px-3 text-left text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5]"
+                        >
+                          {t.logout}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  <label className="sr-only" htmlFor="admin-language">
+                    {t.language}
+                  </label>
+                  <select
+                    id="admin-language"
+                    value={locale}
+                    onChange={(event) => setLocale(event.target.value as Locale)}
+                    className="h-10 cursor-pointer border border-[#d4d4d4] bg-white px-3 text-sm font-medium"
+                  >
+                    {locales.map((item) => (
+                      <option key={item} value={item}>
+                        {item.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </header>
+
+            <div
+              className={[
+                "grid w-full flex-1 gap-6 px-4 py-6 sm:px-6",
+                adminUser ? "lg:px-10 lg:py-10" : "mx-auto max-w-6xl lg:py-10",
+              ].join(" ")}
+            >
+              {adminNotice && adminUser ? (
+                <p className="w-full rounded-none border border-[#dcdcdc] bg-white p-3 text-sm font-medium text-[#404040]">
+                  {adminNotice}
+                </p>
+              ) : null}
+              <AdminPanel
+                adminView={adminView}
+                appointments={appointments}
+                availabilityBlocks={availabilityBlocks}
+                services={availableServices}
+                adminUser={adminUser}
+                isLoading={isLoadingAdmin || isUpdatingStatus}
+                locale={locale}
+                t={t}
+                notice={adminNotice}
+                onLogin={handleAdminLogin}
+                onRegister={handleAccountRegister}
+                onResendSignup={handleResendSignup}
+                onSendRecovery={handleSendRecovery}
+                onUpdatePassword={handleUpdatePassword}
+                onVerifyRecovery={handleVerifyRecovery}
+                onVerifySignup={handleVerifySignup}
+                onGoogleLogin={handleGoogleLogin}
+                onLogout={handleAdminLogout}
+                onRefresh={loadAdminData}
+                onCreateBlock={handleCreateBlock}
+                onStatusChange={updateStatus}
+              />
+            </div>
           </div>
         </section>
       </main>
@@ -1042,7 +1160,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                           type="button"
                           onClick={() => {
                             setServiceId(service.id);
-                            setSlot("");
+                            setSelectedSlots([]);
                           }}
                           aria-pressed={isSelected}
                           className={serviceCardClass(isSelected)}
@@ -1082,6 +1200,9 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                   <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
                     {dateOptions.map((option) => {
                       const isSelected = option.value === date;
+                      const hasSelectedSlot = selectedSlots.some((slot) =>
+                        slot.startsWith(option.value),
+                      );
 
                       return (
                         <button
@@ -1089,7 +1210,6 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                           type="button"
                           onClick={() => {
                             setDate(option.value);
-                            setSlot("");
                           }}
                           aria-pressed={isSelected}
                           className={datePillClass(isSelected)}
@@ -1103,6 +1223,16 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                           <span className="text-xs lowercase">
                             {formatMonth(option.date, locale)}
                           </span>
+                          <span
+                            className={[
+                              "mt-1 h-1.5 w-1.5 rounded-full transition",
+                              hasSelectedSlot
+                                ? isSelected
+                                  ? "bg-white"
+                                  : "bg-[#111111]"
+                                : "bg-transparent",
+                            ].join(" ")}
+                          />
                         </button>
                       );
                     })}
@@ -1114,7 +1244,6 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                       min={getTodayDateValue()}
                       onChange={(event) => {
                         setDate(event.target.value);
-                        setSlot("");
                       }}
                       className={inputClass}
                     />
@@ -1123,6 +1252,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
 
                 <div className="grid gap-3">
                   <StepHeading number={4} label={t.chooseTime} />
+                  <p className="text-xs text-[#737373]">{t.multiSlotHint}</p>
                   {availableSlots.length === 0 ? (
                     <p className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-4 text-sm text-[#525252]">
                       {t.noSlots}
@@ -1130,25 +1260,62 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                   ) : (
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {availableSlots.map((availableSlot) => {
-                        const isSelected = availableSlot === selectedSlot;
+                        const isSelected = selectedSlots.includes(availableSlot);
 
                         return (
                           <button
                             key={availableSlot}
                             type="button"
+                            disabled={!isSelected && selectedSlots.length >= 12}
                             onClick={() => {
-                              setSlot(availableSlot);
+                              setSelectedSlots((current) =>
+                                current.includes(availableSlot)
+                                  ? current.filter((item) => item !== availableSlot)
+                                  : [...current, availableSlot].sort(),
+                              );
                               setFormErrors((current) => ({ ...current, slot: undefined }));
-                            }}
-                            aria-pressed={isSelected}
-                            className={timeButtonClass(isSelected)}
-                          >
-                            {formatTimeOnly(availableSlot, locale)}
+                          }}
+                          aria-pressed={isSelected}
+                          className={timeButtonClass(isSelected)}
+                        >
+                            <LocalizedTimeLabel value={availableSlot} locale={locale} />
                           </button>
                         );
                       })}
                     </div>
                   )}
+                  {selectedSlots.length ? (
+                    <div className="grid gap-2 rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#737373]">
+                        {t.selectedSlots} ({selectedSlots.length})
+                      </p>
+                      {selectedSlots.map((selectedAppointmentSlot) => (
+                        <div
+                          key={selectedAppointmentSlot}
+                          className="flex items-center justify-between gap-3 text-sm text-[#404040]"
+                        >
+                          <span>
+                            {formatSummaryDate(selectedAppointmentSlot, locale)} ·{" "}
+                            <LocalizedTimeLabel value={selectedAppointmentSlot} locale={locale} />
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedSlots((current) =>
+                                current.filter((item) => item !== selectedAppointmentSlot),
+                              )
+                            }
+                            className="cursor-pointer font-semibold text-[#737373] transition hover:text-[#111111]"
+                          >
+                            {t.removeSlot}
+                          </button>
+                        </div>
+                      ))}
+                      {selectedSlots.length >= 12 ? (
+                        <p className="pt-1 text-xs text-[#737373]">{t.slotSelectionLimit}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {formErrors.slot ? (
                     <p className="text-xs font-medium text-[#8a4329]">{formErrors.slot}</p>
                   ) : null}
@@ -1160,6 +1327,7 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
                   displayCurrency={displayCurrency}
                   selectedService={selectedService}
                   selectedSlot={selectedSlot}
+                  selectedSlots={selectedSlots}
                   t={t}
                 />
 
@@ -1294,6 +1462,16 @@ export function BookingApp({ mode = "public" }: { mode?: "public" | "admin" }) {
         </div>
       </section>
     </main>
+    {selectedSlots.length > 0 && !submittedRequest ? (
+      <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 sm:hidden">
+        <div className="flex items-center gap-2 rounded-full bg-[#111111] px-4 py-2.5 shadow-lg">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-[#111111]">
+            {selectedSlots.length}
+          </span>
+          <span className="text-sm font-semibold text-white">{t.selectedSlots}</span>
+        </div>
+      </div>
+    ) : null}
     {submittedRequest ? (
       <PreApprovalModal
         details={submittedRequest}
@@ -1331,6 +1509,8 @@ function PreApprovalModal({
   t: Record<string, string>;
 }) {
   const reservationCode = `PR-${details.appointment.id.slice(0, 6).toUpperCase()}`;
+  const isGroupedRequest =
+    details.appointments.length > 1 || details.unavailableSlots.length > 0;
 
   function closeAndReturnToBooking() {
     onClose();
@@ -1369,14 +1549,18 @@ function PreApprovalModal({
               <SummaryRow label={t.patientAddress} value={details.address} />
             ) : null}
             <SummaryRow label={t.service} value={details.serviceTitle} />
-            <SummaryRow
-              label={t.date}
-              value={formatSummaryDate(details.appointment.startsAt, locale)}
-            />
-            <SummaryRow
-              label={t.time}
-              value={formatTimeOnly(details.appointment.startsAt, locale)}
-            />
+            {!isGroupedRequest ? (
+              <>
+                <SummaryRow
+                  label={t.date}
+                  value={formatSummaryDate(details.appointment.startsAt, locale)}
+                />
+                <SummaryRow
+                  label={t.time}
+                  value={formatTimeOnly(details.appointment.startsAt, locale)}
+                />
+              </>
+            ) : null}
             <SummaryRow
               label={t.duration}
               value={`${Math.round(
@@ -1386,9 +1570,38 @@ function PreApprovalModal({
               )} min`}
             />
             <div className="border-t border-[#e5e5e5] pt-3">
-              <SummaryRow label={t.total} value={details.priceLabel} strong />
+              <SummaryRow
+                label={isGroupedRequest ? t.pricePerAppointment : t.total}
+                value={details.priceLabel}
+                strong
+              />
             </div>
           </dl>
+
+          {isGroupedRequest ? (
+            <div className="grid gap-4 rounded-2xl border border-[#e5e5e5] p-4 text-sm">
+              <div className="grid gap-2">
+                <p className="font-semibold text-[#111111]">{t.savedSlots}</p>
+                {details.appointments.map((appointment) => (
+                  <p key={appointment.id} className="text-[#404040]">
+                    {formatSummaryDate(appointment.startsAt, locale)} ·{" "}
+                    {formatTimeOnly(appointment.startsAt, locale)}
+                  </p>
+                ))}
+              </div>
+              {details.unavailableSlots.length ? (
+                <div className="grid gap-2 border-t border-[#e5e5e5] pt-3">
+                  <p className="font-semibold text-[#8a4329]">{t.unavailableSlots}</p>
+                  {details.unavailableSlots.map((startsAt) => (
+                    <p key={startsAt} className="text-[#525252]">
+                      {formatSummaryDate(startsAt, locale)} ·{" "}
+                      {formatTimeOnly(startsAt, locale)}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid gap-2 rounded-2xl bg-[#f5f5f5] p-4 text-sm leading-6 text-[#404040]">
             {details.emailDelivery === "sent" ? (
@@ -1436,12 +1649,23 @@ function StepHeading({ number, label }: { number: number; label: string }) {
   );
 }
 
+function LocalizedTimeLabel({ value, locale }: { value: string; locale: Locale }) {
+  const [label, setLabel] = useState("--:--");
+
+  useEffect(() => {
+    setLabel(formatTimeOnly(value, locale));
+  }, [locale, value]);
+
+  return label;
+}
+
 function BookingSummary({
   date,
   displayCurrency,
   locale,
   selectedService,
   selectedSlot,
+  selectedSlots,
   t,
 }: {
   date: string;
@@ -1449,6 +1673,7 @@ function BookingSummary({
   locale: Locale;
   selectedService: (typeof fallbackServices)[number];
   selectedSlot: string;
+  selectedSlots: string[];
   t: Record<string, string>;
 }) {
   return (
@@ -1464,7 +1689,13 @@ function BookingSummary({
         />
         <SummaryRow
           label={t.time}
-          value={selectedSlot ? formatTimeOnly(selectedSlot, locale) : "-"}
+          value={
+            selectedSlot
+              ? selectedSlots.length > 1
+                ? `${selectedSlots.length} ${t.appointmentsUnit}`
+                : formatTimeOnly(selectedSlot, locale)
+              : "-"
+          }
         />
         <SummaryRow
           label={t.duration}
@@ -1716,6 +1947,20 @@ function AdminPanel({
   );
 }
 
+function getAdminNavItems(t: Record<string, string>): Array<[AdminView, string, string]> {
+  return [
+    ["panel", t.adminPanel, "#"],
+    ["agenda", t.adminAgenda, "[]"],
+    ["requests", t.adminRequests, "!"],
+    ["blocks", t.adminBlocks, "o"],
+    ["services", t.adminServices, "<>"],
+    ["team", t.adminTeam, "**"],
+    ["clients", t.adminClients, "()"],
+    ["income", t.adminIncome, "$"],
+    ["profile", t.adminProfile, "@"],
+  ];
+}
+
 function AdminTopNav({
   adminView,
   t,
@@ -1725,17 +1970,7 @@ function AdminTopNav({
   t: Record<string, string>;
   onViewChange: (view: AdminView) => void;
 }) {
-  const items: Array<[AdminView, string]> = [
-    ["panel", t.adminPanel],
-    ["agenda", t.adminAgenda],
-    ["requests", t.adminRequests],
-    ["blocks", t.adminBlocks],
-    ["services", t.adminServices],
-    ["team", t.adminTeam],
-    ["clients", t.adminClients],
-    ["income", t.adminIncome],
-    ["profile", t.adminProfile],
-  ];
+  const items = getAdminNavItems(t);
 
   return (
     <div className="min-w-0 flex-1">
@@ -1746,7 +1981,7 @@ function AdminTopNav({
         id="admin-section"
         value={adminView}
         onChange={(event) => onViewChange(event.target.value as AdminView)}
-        className="h-10 w-full cursor-pointer rounded-xl border border-[#d4d4d4] bg-white px-3 text-sm font-semibold text-[#111111] outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15 md:hidden"
+        className="h-10 w-full cursor-pointer border border-[#d4d4d4] bg-white px-3 text-sm font-semibold text-[#111111] outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
       >
         {items.map(([view, label]) => (
           <option key={view} value={view}>
@@ -1754,32 +1989,82 @@ function AdminTopNav({
           </option>
         ))}
       </select>
-
-      <nav className="hidden min-w-0 items-center gap-1 overflow-x-auto rounded-full border border-[#e5e5e5] bg-[#fafafa] p-1 md:flex lg:justify-center">
-        {items.map(([view, label]) => (
-          <button
-            key={view}
-            type="button"
-            onClick={() => onViewChange(view)}
-            className={[
-              "h-9 shrink-0 cursor-pointer rounded-full px-2.5 text-xs font-semibold transition xl:px-3 xl:text-sm",
-              adminView === view
-                ? "bg-[#111111] text-white"
-                : "text-[#737373] hover:bg-white hover:text-[#111111]",
-            ].join(" ")}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
     </div>
+  );
+}
+
+function AdminSideNav({
+  adminView,
+  t,
+  userEmail,
+  onLogout,
+  onViewChange,
+}: {
+  adminView: AdminView;
+  t: Record<string, string>;
+  userEmail: string;
+  onLogout: () => Promise<void>;
+  onViewChange: (view: AdminView) => void;
+}) {
+  const items = getAdminNavItems(t);
+  const initial = (userEmail || "M").slice(0, 1).toUpperCase();
+
+  return (
+    <aside className="sticky top-0 hidden h-screen w-[240px] border-r border-[#d7d7d7] bg-[#f5f5f5] lg:flex lg:flex-col">
+      <div className="border-b border-[#dedede] px-6 py-8">
+        <p className="text-2xl font-semibold text-[#111111]">{t.adminPanel}</p>
+      </div>
+
+      <nav className="flex-1 py-4">
+        {items.map(([view, label, glyph]) => {
+          const active = adminView === view;
+
+          return (
+            <button
+              key={view}
+              type="button"
+              onClick={() => onViewChange(view)}
+              className={[
+                "flex h-14 w-full cursor-pointer items-center gap-4 border-l-4 px-5 text-left text-xs font-semibold uppercase tracking-[0.18em] transition",
+                active
+                  ? "border-[#111111] bg-[#111111] text-white"
+                  : "border-transparent text-[#404040] hover:bg-white hover:text-[#111111]",
+              ].join(" ")}
+            >
+              <span className="grid h-5 w-5 place-items-center font-mono text-[0.7rem] leading-none">
+                {glyph}
+              </span>
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="border-t border-[#dedede] p-5">
+        <div className="flex items-center gap-3">
+          <div className="grid h-9 w-9 place-items-center bg-[#111111] text-sm font-semibold text-white">
+            {initial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-[#111111]">Maria M.</p>
+            <p className="truncate text-xs text-[#666666]">{userEmail}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void onLogout()}
+          className="mt-4 h-10 w-full cursor-pointer border border-[#111111] bg-white text-sm font-semibold text-[#111111] transition hover:bg-[#111111] hover:text-white"
+        >
+          {t.logout}
+        </button>
+      </div>
+    </aside>
   );
 }
 
 function AdminDashboard({
   appointments,
   availabilityBlocks,
-  dateOptions,
   isLoading,
   locale,
   selectedDate,
@@ -1816,48 +2101,349 @@ function AdminDashboard({
   const selectedDateActive = selectedDateAppointments.filter((appointment) =>
     ["confirmed", "pending_approval"].includes(appointment.status),
   );
+  const pendingRequests = appointments
+    .filter((appointment) => appointment.status === "pending_approval")
+    .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
 
   return (
-    <section className="grid gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <section className="grid gap-8">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-[#111111]">{t.adminGreeting}</h1>
-          <p className="mt-2 text-sm text-[#737373]">
-            {formatSummaryDate(`${selectedDate}T00:00:00`, locale)}
+          <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[#666666]">
+            {t.adminEyebrow}
           </p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-normal text-[#111111]">
+            {t.adminControlPanel}
+          </h1>
         </div>
-        <button
-          type="button"
-          onClick={() => void onRefresh()}
-          disabled={isLoading}
-          className="h-10 w-fit cursor-pointer rounded-xl border border-[#d4d4d4] px-4 text-sm font-semibold text-[#404040] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isLoading ? t.loading : t.refresh}
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <AdminDateControls locale={locale} selectedDate={selectedDate} t={t} onDateChange={onDateChange} />
+          <button
+            type="button"
+            onClick={() => void onRefresh()}
+            disabled={isLoading}
+            className="h-11 cursor-pointer border border-[#d4d4d4] bg-white px-5 text-sm font-semibold uppercase tracking-[0.12em] text-[#404040] transition hover:border-[#111111] hover:text-[#111111] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading ? t.loading : t.refresh}
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <AdminStat label={t.todayConfirmed} value={selectedDateConfirmed.length} />
-        <AdminStat label={t.todayPending} value={selectedDatePending.length} />
-        <AdminStat label={t.dayAppointments} value={selectedDateActive.length} />
+        <AdminKpiCard label={t.todayConfirmed} value={selectedDateConfirmed.length} suffix={t.sessionsUnit} />
+        <AdminKpiCard label={t.todayPending} value={selectedDatePending.length} suffix={t.requestsUnit} />
+        <AdminKpiCard label={t.dayAppointments} value={selectedDateActive.length} suffix={t.appointmentsUnit} inverted />
       </div>
 
-      <AdminAgenda
-        appointments={selectedDateAppointments}
-        blocks={selectedDateBlocks}
-        dateOptions={dateOptions}
-        isLoading={isLoading}
-        locale={locale}
-        selectedDate={selectedDate}
-        services={services}
-        t={t}
-        onDateChange={onDateChange}
-        onStatusChange={onStatusChange}
-      />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(22rem,0.8fr)]">
+        <div className="order-2 xl:order-1">
+          <AdminDayTimeline
+            appointments={selectedDateAppointments}
+            blocks={selectedDateBlocks}
+            isLoading={isLoading}
+            locale={locale}
+            services={services}
+            t={t}
+            onStatusChange={onStatusChange}
+          />
+        </div>
+        <div className="order-1 xl:order-2">
+          <AdminPendingPanel
+            appointments={pendingRequests}
+            isLoading={isLoading}
+            locale={locale}
+            services={services}
+            t={t}
+            onStatusChange={onStatusChange}
+          />
+        </div>
+      </div>
     </section>
   );
 }
 
+function AdminDateControls({
+  locale,
+  selectedDate,
+  t,
+  onDateChange,
+}: {
+  locale: Locale;
+  selectedDate: string;
+  t: Record<string, string>;
+  onDateChange: (date: string) => void;
+}) {
+  const today = getTodayDateValue();
+  const controls: Array<[string, string]> = [
+    [shiftDateValue(today, -1), t.yesterday],
+    [today, t.today + ", " + getShortDayMonthLabel(today, locale)],
+    [shiftDateValue(today, 1), t.tomorrow],
+  ];
+
+  return (
+    <div className="grid grid-cols-[1fr_1fr_1fr_auto] border border-[#d4d4d4] bg-white">
+      {controls.map(([value, label]) => {
+        const active = selectedDate === value;
+
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onDateChange(value)}
+            className={[
+              "h-11 cursor-pointer px-4 text-xs font-semibold uppercase tracking-[0.1em] transition sm:px-5",
+              active ? "bg-[#111111] text-white" : "text-[#666666] hover:bg-[#f5f5f5] hover:text-[#111111]",
+            ].join(" ")}
+          >
+            {label}
+          </button>
+        );
+      })}
+      <label className="grid h-11 w-12 cursor-pointer place-items-center border-l border-[#d4d4d4] text-[#404040]">
+        <span className="sr-only">{t.openCalendar}</span>
+        <input
+          type="date"
+          value={selectedDate}
+          min={getTodayDateValue()}
+          onChange={(event) => onDateChange(event.target.value)}
+          className="absolute h-10 w-10 cursor-pointer opacity-0"
+        />
+        <span className="font-mono text-lg" aria-hidden="true">
+          []
+        </span>
+      </label>
+    </div>
+  );
+}
+
+function AdminKpiCard({
+  inverted = false,
+  label,
+  suffix,
+  value,
+}: {
+  inverted?: boolean;
+  label: string;
+  suffix: string;
+  value: number;
+}) {
+  return (
+    <article
+      className={[
+        "border p-5",
+        inverted ? "border-[#111111] bg-[#111111] text-white" : "border-[#d7d7d7] bg-white text-[#111111]",
+      ].join(" ")}
+    >
+      <p className={[
+        "text-sm font-medium uppercase tracking-[0.04em]",
+        inverted ? "text-white/60" : "text-[#666666]",
+      ].join(" ")}
+      >
+        {label}
+      </p>
+      <div className="mt-8 flex items-end gap-3">
+        <span className="text-5xl font-light tabular-nums leading-none">{String(value).padStart(2, "0")}</span>
+        <span className={[
+          "pb-1 text-sm font-medium uppercase tracking-[0.04em]",
+          inverted ? "text-white/65" : "text-[#666666]",
+        ].join(" ")}
+        >
+          {suffix}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function AdminDayTimeline({
+  appointments,
+  blocks,
+  isLoading,
+  locale,
+  services,
+  t,
+  onStatusChange,
+}: {
+  appointments: Appointment[];
+  blocks: AvailabilityBlock[];
+  isLoading: boolean;
+  locale: Locale;
+  services: typeof fallbackServices;
+  t: Record<string, string>;
+  onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
+}) {
+  const items = [
+    ...appointments.map((appointment) => ({ type: "appointment" as const, appointment, startsAt: appointment.startsAt })),
+    ...blocks.map((block) => ({ type: "block" as const, block, startsAt: block.startsAt })),
+  ].sort((first, second) => first.startsAt.localeCompare(second.startsAt));
+
+  return (
+    <section className="grid gap-4">
+      <div className="flex items-center gap-4">
+        <h2 className="text-2xl font-semibold text-[#111111]">{t.daySchedule}</h2>
+        <div className="h-px flex-1 bg-[#d7d7d7]" />
+        <p className="font-mono text-sm uppercase tracking-[0.16em] text-[#404040]">GMT -03:00</p>
+      </div>
+
+      <div className="border border-[#d7d7d7] bg-white">
+        <div className="hidden grid-cols-[6.5rem_minmax(0,1fr)] border-b border-[#d7d7d7] text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[#666666] sm:grid">
+          <div className="border-r border-[#d7d7d7] px-4 py-3 text-center">{t.time}</div>
+          <div className="px-5 py-3">{t.serviceDetails}</div>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="p-10 text-center text-sm text-[#666666]">
+            {t.noAppointmentsThisDay}
+          </div>
+        ) : null}
+
+        <div className="grid">
+          {items.map((item) => {
+            if (item.type === "block") {
+              return (
+                <div key={item.block.id} className="grid border-b border-[#e5e5e5] last:border-b-0 sm:grid-cols-[6.5rem_minmax(0,1fr)]">
+                  <div className="border-[#d7d7d7] px-4 py-5 font-mono text-sm text-[#404040] sm:border-r">
+                    {formatTimeOnly(item.block.startsAt, locale)}
+                  </div>
+                  <div className="px-5 py-5">
+                    <div className="bg-[#eeeeee] px-4 py-4 text-center text-sm font-semibold uppercase tracking-[0.14em] text-[#666666]">
+                      {t.blockedTime}{item.block.reason ? " - " + item.block.reason : ""}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            const service = findServiceInList(item.appointment.serviceId, services);
+            const canUpdate = item.appointment.status === "pending_approval";
+
+            return (
+              <div key={item.appointment.id} className="grid border-b border-[#e5e5e5] last:border-b-0 sm:grid-cols-[6.5rem_minmax(0,1fr)]">
+                <div className="border-[#d7d7d7] px-4 py-5 font-mono text-sm text-[#404040] sm:border-r">
+                  {formatTimeOnly(item.appointment.startsAt, locale)}
+                </div>
+                <div className="px-5 py-5">
+                  <article className="border border-[#dedede] bg-[#f7f7f7] p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-base font-semibold text-[#111111]">{item.appointment.patientName}</h3>
+                        <p className="mt-2 text-sm text-[#666666]">
+                          {service.title[locale]} - {service.durationMinutes} min
+                        </p>
+                        <p className="mt-2 text-xs text-[#666666]">{item.appointment.patientEmail}</p>
+                      </div>
+                      <span className="w-fit border border-[#111111] bg-white px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-[#111111]">
+                        {t[item.appointment.status]}
+                      </span>
+                    </div>
+                    {canUpdate ? (
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => void onStatusChange(item.appointment.id, "declined")}
+                          className="h-10 cursor-pointer border border-[#111111] text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {t.decline}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => void onStatusChange(item.appointment.id, "confirmed")}
+                          className="h-10 cursor-pointer bg-[#111111] text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {t.approve}
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AdminPendingPanel({
+  appointments,
+  isLoading,
+  locale,
+  services,
+  t,
+  onStatusChange,
+}: {
+  appointments: Appointment[];
+  isLoading: boolean;
+  locale: Locale;
+  services: typeof fallbackServices;
+  t: Record<string, string>;
+  onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
+}) {
+  return (
+    <aside className="grid gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-2xl font-semibold text-[#111111]">{t.pendingRequestsTitle}</h2>
+        <span className="grid h-8 min-w-8 place-items-center bg-[#111111] px-2 text-sm font-semibold text-white">
+          {appointments.length}
+        </span>
+      </div>
+
+      {appointments.length === 0 ? (
+        <p className="border border-[#d7d7d7] bg-white p-5 text-sm text-[#666666]">
+          {t.noFilteredAppointments}
+        </p>
+      ) : null}
+
+      <div className="grid gap-3">
+        {appointments.slice(0, 4).map((appointment) => {
+          const service = findServiceInList(appointment.serviceId, services);
+
+          return (
+            <article key={appointment.id} className="border border-[#d7d7d7] bg-white">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 p-5">
+                <div>
+                  <h3 className="truncate text-base font-semibold text-[#111111]">{appointment.patientName}</h3>
+                  <p className="mt-2 text-sm text-[#666666]">
+                    {service.title[locale]} - {service.durationMinutes} min
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-base font-semibold text-[#111111]">
+                    {formatTimeOnly(appointment.startsAt, locale)}
+                  </p>
+                  <p className="mt-1 text-[0.65rem] uppercase tracking-[0.08em] text-[#666666]">
+                    {formatSummaryDate(appointment.startsAt, locale)}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 border-t border-[#d7d7d7]">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => void onStatusChange(appointment.id, "declined")}
+                  className="h-12 cursor-pointer text-sm font-semibold uppercase tracking-[0.08em] text-[#404040] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  x {t.decline}
+                </button>
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => void onStatusChange(appointment.id, "confirmed")}
+                  className="h-12 cursor-pointer bg-[#111111] text-sm font-semibold uppercase tracking-[0.08em] text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  OK {t.approve}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
 function AdminRequests({
   appointments,
   filter,
@@ -1883,6 +2469,8 @@ function AdminRequests({
   onSearchChange: (value: string) => void;
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
 }) {
+  const appointmentGroups = groupAdminAppointments(appointments);
+
   return (
     <section className="grid gap-4">
       <div>
@@ -1895,7 +2483,7 @@ function AdminRequests({
           value={requestSearch}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder={t.requestSearchPlaceholder}
-          className="h-9 w-full max-w-[16rem] rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition placeholder:text-[#8a8a8a] focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
+          className="h-9 w-full max-w-[12rem] border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition placeholder:text-[#8a8a8a] focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15"
         />
       </div>
 
@@ -1918,22 +2506,43 @@ function AdminRequests({
       </div>
 
       {appointments.length === 0 ? (
-        <p className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-5 text-sm text-[#737373]">
+        <p className="border border-[#e5e5e5] bg-[#fafafa] p-5 text-sm text-[#737373]">
           {t.noFilteredAppointments}
         </p>
       ) : null}
 
       <div className="grid gap-3">
-        {appointments.map((appointment) => (
-          <AppointmentRow
-            key={appointment.id}
-            appointment={appointment}
-            services={services}
-            locale={locale}
-            t={t}
-            isUpdating={isLoading}
-            onStatusChange={onStatusChange}
-          />
+        {appointmentGroups.map((group) => (
+          <section
+            key={group.key}
+            className={
+              group.requestId
+                ? "grid gap-3 border border-[#d7d7d7] bg-[#fafafa] p-3"
+                : ""
+            }
+          >
+            {group.requestId ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#525252]">
+                  {t.groupedRequest}
+                </p>
+                <p className="text-xs text-[#737373]">
+                  {group.appointments.length} {t.appointmentsUnit}
+                </p>
+              </div>
+            ) : null}
+            {group.appointments.map((appointment) => (
+              <AppointmentRow
+                key={appointment.id}
+                appointment={appointment}
+                services={services}
+                locale={locale}
+                t={t}
+                isUpdating={isLoading}
+                onStatusChange={onStatusChange}
+              />
+            ))}
+          </section>
         ))}
       </div>
     </section>
@@ -1958,7 +2567,7 @@ function AdminServices({
       {services.map((service) => (
         <article
           key={service.id}
-          className="flex items-center justify-between gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-4"
+          className="flex items-center justify-between gap-4 border border-[#e5e5e5] bg-white p-4"
         >
           <div>
             <h2 className="font-semibold text-[#111111]">{service.title[locale]}</h2>
@@ -1994,13 +2603,13 @@ function AdminClients({
       </div>
 
       {clients.length === 0 ? (
-        <p className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-8 text-center text-sm text-[#737373]">
+        <p className="border border-[#e5e5e5] bg-[#fafafa] p-8 text-center text-sm text-[#737373]">
           {t.noClientsYet}
         </p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {clients.map((client) => (
-            <article key={client.key} className="rounded-2xl border border-[#e5e5e5] bg-white p-4">
+            <article key={client.key} className="border border-[#e5e5e5] bg-white p-4">
               <h2 className="font-semibold text-[#111111]">{client.name}</h2>
               <p className="mt-1 text-sm text-[#737373]">{client.email}</p>
               {client.phone ? <p className="mt-1 text-sm text-[#737373]">{client.phone}</p> : null}
@@ -2041,7 +2650,7 @@ function AdminIncome({
         <AdminStat label={t.monthlyIncome} value={totalUsd} />
         <AdminStat label={t.completedAppointments} value={completed.length} />
       </div>
-      <p className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-8 text-center text-sm text-[#737373]">
+      <p className="border border-[#e5e5e5] bg-[#fafafa] p-8 text-center text-sm text-[#737373]">
         {t.incomeManualPending}
       </p>
     </section>
@@ -2062,7 +2671,7 @@ function AdminProfile({
   onRefresh: () => Promise<void>;
 }) {
   return (
-    <section className="mx-auto grid w-full max-w-xl gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-5">
+    <section className="mx-auto grid w-full max-w-xl gap-4 border border-[#e5e5e5] bg-white p-5">
       <div>
         <h1 className="text-2xl font-semibold text-[#111111]">{t.adminProfile}</h1>
         {adminUser ? (
@@ -2076,14 +2685,14 @@ function AdminProfile({
           type="button"
           onClick={() => void onRefresh()}
           disabled={isLoading}
-          className="h-10 cursor-pointer rounded-xl border border-[#d4d4d4] px-4 text-sm font-semibold text-[#404040] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-10 cursor-pointer border border-[#d4d4d4] px-4 text-sm font-semibold text-[#404040] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isLoading ? t.loading : t.refresh}
         </button>
         <button
           type="button"
           onClick={() => void onLogout()}
-          className="h-10 cursor-pointer rounded-xl border border-[#b86b4e] px-4 text-sm font-semibold text-[#8a4329] transition hover:bg-[#fff7f2]"
+          className="h-10 cursor-pointer border border-[#111111] px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#111111] hover:text-white"
         >
           {t.logout}
         </button>
@@ -2094,7 +2703,7 @@ function AdminProfile({
 
 function AdminPlaceholder({ title, copy }: { title: string; copy: string }) {
   return (
-    <section className="mx-auto grid w-full max-w-3xl gap-2 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-8 text-center">
+    <section className="mx-auto grid w-full max-w-3xl gap-2 border border-[#e5e5e5] bg-[#fafafa] p-8 text-center">
       <h1 className="text-3xl font-semibold text-[#111111]">{title}</h1>
       <p className="text-sm leading-6 text-[#737373]">{copy}</p>
     </section>
@@ -2125,7 +2734,7 @@ function AdminAgenda({
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
 }) {
   return (
-    <section className="grid gap-4 rounded-2xl border border-[#e5e5e5] bg-white p-4 sm:p-6">
+    <section className="grid gap-4 border border-[#e5e5e5] bg-white p-4 sm:p-6">
       <div className="grid gap-4 text-center sm:grid-cols-[1fr_auto_1fr] sm:items-end">
         <div aria-hidden="true" className="hidden sm:block" />
         <div>
@@ -2140,7 +2749,7 @@ function AdminAgenda({
             value={selectedDate}
             min={getTodayDateValue()}
             onChange={(event) => onDateChange(event.target.value)}
-            className={`${inputClass} cursor-pointer`}
+            className={`${adminInputClass} cursor-pointer`}
           />
         </Field>
       </div>
@@ -2155,7 +2764,7 @@ function AdminAgenda({
               type="button"
               onClick={() => onDateChange(option.value)}
               aria-pressed={isSelected}
-              className={datePillClass(isSelected)}
+              className={adminDatePillClass(isSelected)}
             >
               <span className="text-xs font-semibold uppercase">
                 {formatWeekday(option.date, locale)}
@@ -2172,7 +2781,7 @@ function AdminAgenda({
           {blocks.map((block) => (
             <div
               key={block.id}
-              className="rounded-xl border border-[#f0c9b8] bg-[#fff7f2] p-3 text-sm text-[#8a4329]"
+              className="border border-[#d7d7d7] bg-[#eeeeee] p-3 text-sm text-[#404040]"
             >
               <strong>{t.blockedTime}</strong> {formatTimeOnly(block.startsAt, locale)} -{" "}
               {formatTimeOnly(block.endsAt, locale)}
@@ -2183,7 +2792,7 @@ function AdminAgenda({
       ) : null}
 
       {appointments.length === 0 && blocks.length === 0 ? (
-        <div className="rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-10 text-center">
+        <div className="border border-[#e5e5e5] bg-[#fafafa] p-10 text-center">
           <p className="text-lg font-semibold text-[#404040]">{t.noAppointmentsThisDay}</p>
           <p className="mt-2 text-sm text-[#737373]">{t.shareBookingLink}</p>
         </div>
@@ -2248,7 +2857,7 @@ function AdminBlocks({
   }
 
   return (
-    <section className="mx-auto grid w-full max-w-3xl gap-5 rounded-2xl border border-[#e5e5e5] bg-white p-4 sm:p-6">
+    <section className="mx-auto grid w-full max-w-3xl gap-5 border border-[#e5e5e5] bg-white p-4 sm:p-6">
       <div>
         <h2 className="text-2xl font-semibold text-[#111111]">{t.blockDaysTitle}</h2>
         <p className="mt-2 text-sm leading-6 text-[#737373]">{t.blockDaysCopy}</p>
@@ -2264,7 +2873,7 @@ function AdminBlocks({
               type="button"
               onClick={() => onDateChange(option.value)}
               aria-pressed={isSelected}
-              className={datePillClass(isSelected)}
+              className={adminDatePillClass(isSelected)}
             >
               <span className="text-xs font-semibold uppercase">
                 {formatWeekday(option.date, locale)}
@@ -2276,7 +2885,7 @@ function AdminBlocks({
         })}
       </div>
 
-      <form onSubmit={submitBlock} className="grid gap-4 rounded-2xl bg-[#fafafa] p-4">
+      <form onSubmit={submitBlock} className="grid gap-4 border border-[#e5e5e5] bg-[#fafafa] p-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t.blockStart}>
             <input
@@ -2286,7 +2895,7 @@ function AdminBlocks({
               onChange={(event) =>
                 setBlockForm((current) => ({ ...current, startsAt: event.target.value }))
               }
-              className={inputClass}
+              className={adminInputClass}
             />
           </Field>
           <Field label={t.blockEnd}>
@@ -2297,7 +2906,7 @@ function AdminBlocks({
               onChange={(event) =>
                 setBlockForm((current) => ({ ...current, endsAt: event.target.value }))
               }
-              className={inputClass}
+              className={adminInputClass}
             />
           </Field>
         </div>
@@ -2308,14 +2917,14 @@ function AdminBlocks({
             onChange={(event) =>
               setBlockForm((current) => ({ ...current, reason: event.target.value }))
             }
-            className={inputClass}
+            className={adminInputClass}
           />
         </Field>
 
         <button
           type="submit"
           disabled={isLoading}
-          className="h-12 cursor-pointer rounded-xl bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
+          className="h-12 cursor-pointer bg-[#111111] px-5 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
         >
           {isLoading ? t.loading : t.blockDay}
         </button>
@@ -2324,7 +2933,7 @@ function AdminBlocks({
       {blocks.length > 0 ? (
         <div className="grid gap-2">
           {blocks.slice(0, 8).map((block) => (
-            <div key={block.id} className="rounded-xl border border-[#e5e5e5] p-3 text-sm">
+            <div key={block.id} className="border border-[#e5e5e5] p-3 text-sm">
               {formatDateTime(block.startsAt, locale)} - {formatTimeOnly(block.endsAt, locale)}
               {block.reason ? ` · ${block.reason}` : ""}
             </div>
@@ -2529,11 +3138,11 @@ function UserIcon() {
 
 function AdminStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-[#d9d0c3] bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6f7b60]">
+    <div className="border border-[#d7d7d7] bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#666666]">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-semibold text-[#24211d]">{value}</p>
+      <p className="mt-2 text-2xl font-semibold text-[#111111]">{value}</p>
     </div>
   );
 }
@@ -2932,18 +3541,18 @@ function AppointmentRow({
   const service = findServiceInList(appointment.serviceId, services);
 
   return (
-    <article className="rounded-lg border border-[#d9d0c3] bg-white p-4">
+    <article className="border border-[#d7d7d7] bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-[#24211d]">
+          <p className="text-sm font-semibold text-[#111111]">
             {appointment.patientName}
           </p>
-          <p className="mt-1 text-sm text-[#5b554e]">
+          <p className="mt-1 text-sm text-[#666666]">
             {formatDateTime(appointment.startsAt, locale)} -{" "}
             {service.durationMinutes} min
           </p>
           {!compact ? (
-            <p className="mt-2 text-sm text-[#5b554e]">
+            <p className="mt-2 text-sm text-[#666666]">
               {service.title[locale]} · {appointment.patientEmail}
             </p>
           ) : null}
@@ -2954,7 +3563,7 @@ function AppointmentRow({
       </div>
 
       {!compact && appointment.notes ? (
-        <p className="mt-3 rounded-md bg-[#f6f3ee] p-3 text-sm text-[#5b554e]">
+        <p className="mt-3 bg-[#f5f5f5] p-3 text-sm text-[#404040]">
           {appointment.notes}
         </p>
       ) : null}
@@ -2965,7 +3574,7 @@ function AppointmentRow({
             type="button"
             onClick={() => void onStatusChange(appointment.id, "confirmed")}
             disabled={isUpdating}
-            className="h-10 rounded-md bg-[#36594a] px-4 text-sm font-semibold text-white hover:bg-[#294438] disabled:cursor-not-allowed disabled:bg-[#9aa79f]"
+            className="h-10 cursor-pointer bg-[#111111] px-4 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:bg-[#b5b5b5]"
           >
             {t.approve}
           </button>
@@ -2973,7 +3582,7 @@ function AppointmentRow({
             type="button"
             onClick={() => void onStatusChange(appointment.id, "declined")}
             disabled={isUpdating}
-            className="h-10 rounded-md border border-[#b86b4e] px-4 text-sm font-semibold text-[#8a4329] hover:bg-[#fff7f2] disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-10 cursor-pointer border border-[#111111] px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t.decline}
           </button>
@@ -3025,6 +3634,9 @@ const inputClass =
 const compactInputClass =
   "h-11 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/15";
 
+const adminInputClass =
+  "min-h-11 w-full border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#111111] outline-none transition focus:border-[#111111] focus:ring-2 focus:ring-[#111111]/10";
+
 function authModeTabClass(active: boolean) {
   return [
     "h-10 cursor-pointer rounded-[4px] text-sm font-semibold transition",
@@ -3036,10 +3648,10 @@ function authModeTabClass(active: boolean) {
 
 function filterButtonClass(active: boolean) {
   return [
-    "h-10 cursor-pointer rounded-md border px-3 text-sm font-semibold transition",
+    "h-9 cursor-pointer border px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#111111]/15",
     active
-      ? "border-[#36594a] bg-[#36594a] text-white"
-      : "border-[#bdb3a5] bg-white text-[#413c36] hover:bg-[#f6f3ee]",
+      ? "border-[#111111] bg-[#111111] text-white"
+      : "border-[#d7d7d7] bg-white text-[#404040] hover:border-[#111111] hover:text-[#111111]",
   ].join(" ");
 }
 
@@ -3055,11 +3667,21 @@ function serviceCardClass(active: boolean) {
 
 function datePillClass(active: boolean) {
   return [
-    "flex h-24 min-w-[4.75rem] cursor-pointer flex-col items-center justify-center rounded-2xl border px-4 py-3 transition",
+    "flex h-20 min-w-[4.5rem] cursor-pointer flex-col items-center justify-center gap-0 rounded-xl border px-3 py-2 transition",
     "focus:outline-none focus:ring-2 focus:ring-[#111111]/20",
     active
       ? "border-[#111111] bg-[#111111] text-white"
       : "border-[#e5e5e5] bg-[#fafafa] text-[#404040] hover:border-[#a3a3a3]",
+  ].join(" ");
+}
+
+function adminDatePillClass(active: boolean) {
+  return [
+    "flex h-20 min-w-[4.5rem] cursor-pointer flex-col items-center justify-center gap-0 border px-3 py-2 text-center transition",
+    "focus:outline-none focus:ring-2 focus:ring-[#111111]/15",
+    active
+      ? "border-[#111111] bg-[#111111] text-white"
+      : "border-[#d7d7d7] bg-white text-[#404040] hover:border-[#111111]",
   ].join(" ");
 }
 
@@ -3084,13 +3706,13 @@ function choiceCardClass(active: boolean) {
 }
 
 function statusClass(status: AppointmentStatus) {
-  const base = "w-fit rounded-full px-3 py-1 text-xs font-semibold";
+  const base = "w-fit border px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.08em]";
   const colors: Record<AppointmentStatus, string> = {
-    pending_approval: "bg-[#fff3d7] text-[#8a5a00]",
-    confirmed: "bg-[#e8f2e2] text-[#36594a]",
-    declined: "bg-[#fde8df] text-[#8a4329]",
-    cancelled: "bg-[#eeeeee] text-[#5b554e]",
-    completed: "bg-[#e7edf4] text-[#35536f]",
+    pending_approval: "border-[#111111] bg-white text-[#111111]",
+    confirmed: "border-[#111111] bg-[#111111] text-white",
+    declined: "border-[#d7d7d7] bg-[#f5f5f5] text-[#666666]",
+    cancelled: "border-[#d7d7d7] bg-[#eeeeee] text-[#666666]",
+    completed: "border-[#111111] bg-white text-[#111111]",
   };
 
   return `${base} ${colors[status]}`;
@@ -3155,6 +3777,36 @@ function getAdminClients(appointments: Appointment[]) {
   );
 }
 
+/**
+ * Por que existe: mantiene juntos en el panel los turnos nacidos de una misma
+ * solicitud mensual mientras cada tarjeta conserva sus acciones individuales.
+ * @returns Grupos en el orden original de la bandeja administrativa.
+ * Efectos secundarios: ninguno.
+ */
+function groupAdminAppointments(appointments: Appointment[]) {
+  const groups = new Map<
+    string,
+    { appointments: Appointment[]; key: string; requestId?: string }
+  >();
+
+  appointments.forEach((appointment) => {
+    const key = appointment.requestId ?? appointment.id;
+    const current = groups.get(key);
+    if (current) {
+      current.appointments.push(appointment);
+      return;
+    }
+
+    groups.set(key, {
+      appointments: [appointment],
+      key,
+      requestId: appointment.requestId,
+    });
+  });
+
+  return Array.from(groups.values());
+}
+
 function sanitizePersonName(value: string) {
   return value.replace(/[^A-Za-zÀ-ÿА-Яа-яЁё '-]/g, "").replace(/\s{2,}/g, " ");
 }
@@ -3165,6 +3817,28 @@ function normalizePersonName(value: string) {
 
 function onlyDigits(value: string) {
   return value.replace(/\D/g, "");
+}
+
+/**
+ * Por que existe: recupera el telefono ya usado por un paciente autenticado
+ * para precargar una nueva reserva sin pedirle sus datos nuevamente.
+ * @returns Codigo de pais conocido y numero compuesto solo por digitos.
+ * Efectos secundarios: ninguno.
+ */
+function splitStoredPhone(value: string) {
+  const storedPhone = value.trim();
+  const country =
+    [...phoneCountries]
+      .sort((first, second) => second.code.length - first.code.length)
+      .find((item) => storedPhone.startsWith(item.code)) ?? phoneCountries[0];
+  const phone = storedPhone.startsWith(country.code)
+    ? onlyDigits(storedPhone.slice(country.code.length))
+    : onlyDigits(storedPhone);
+
+  return {
+    countryCode: country.code,
+    phone,
+  };
 }
 
 function sanitizeAddressText(value: string) {
@@ -3190,6 +3864,21 @@ function getTodayDateValue() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   return date.toISOString().slice(0, 10);
+}
+
+function shiftDateValue(dateValue: string, days: number) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString().slice(0, 10);
+}
+
+function getShortDayMonthLabel(dateValue: string, locale: Locale) {
+  return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : locale, {
+    day: "numeric",
+    month: "short",
+    timeZone,
+  }).format(new Date(`${dateValue}T00:00:00`));
 }
 
 function formatWeekday(date: Date, locale: Locale) {
