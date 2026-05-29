@@ -24,7 +24,23 @@ Read the larger handoff docs before broad changes:
 
 ## Current State
 
-Completed fixes and features:
+### Session 2026-05-29 — Admin panel UX + Clients table
+
+New in this session (all committed to main, deployed):
+
+- Admin panel mobile UX: login button scrolls to auth form; filter tabs scroll horizontal; search input full-width; KPIs always 3-column compact on mobile.
+- Solicitudes: "Futuros" filter tab removed (confusing, low value).
+- Admin Clientes: real Supabase `clients` table implemented (migration 0016).
+  - BEFORE INSERT trigger: auto creates/updates client on every booking — existing RPCs unchanged.
+  - Backfill: 14 clients created, all appointments linked via `client_id` FK.
+  - Admin CRUD: edit name/email/phone/notes inline, delete with modal confirmation, "Ver solicitudes" shortcut.
+- Landing page user icon is now session-aware:
+  - Admin logged in → solid black icon, links directly to `/admin`.
+  - No session / client session → opens selector sheet: "🧖 Soy paciente" (→ `/cuenta`) and "🔑 Panel profesional" (→ `/admin`).
+  - Mobile: bottom sheet at root DOM level (outside header's `backdrop-blur` to fix iOS Safari `position: fixed` bug).
+  - Desktop: fixed dropdown at top-right.
+
+### Previously completed
 
 - Public booking creates pending appointments through Supabase RPC instead of unsafe public table inserts.
 - Pending and confirmed appointments block availability.
@@ -36,6 +52,7 @@ Completed fixes and features:
 - Runtime handler bugs such as missing `submitContact` and `handleCreateBlock` were fixed.
 - User-facing errors should not expose provider/tool names.
 - Public landing page has Maria branding, service cards, language/currency selectors, modality selection, required phone, optional notes, and confirmation modal.
+- Grouped appointment feature (migration 0015): client can request multiple slots in one flow; emails sent to both patient and therapist.
 - Client portal initial UI exists at `/cuenta`.
 - Google OAuth has been started but must be verified end to end.
 
@@ -140,11 +157,19 @@ Names only. Do not add values here.
 
 ## Next Recommended Actions
 
-1. Stabilize auth redirects: Google login should route clients to `/cuenta` and admins to `/admin`.
-2. Finish OTP/code-based signup, resend code, use different email, and forgot-password flows.
-3. Complete the client portal: pending, confirmed, cancelled, and historical appointments.
-4. Finish admin panel redesign in small sections, starting with dashboard KPIs and pending requests.
-5. Verify Resend custom domain and production `EMAIL_FROM`.
-6. Confirm whether migration `0015` should be applied, then apply only after explicit approval.
-7. Implement Google Places Autocomplete for home-visit addresses.
-8. Add admin-managed services/prices before payments or multi-tenant onboarding.
+1. Verify mobile UX (requires login from phone): tabs in Solicitudes scroll correctly; "Ver solicitudes" button in Clientes; edit/delete client from mobile.
+2. Auto-expire past pending appointments: mark `declined` where `status = 'pending_approval'` and `starts_at < now()` — discuss implementation approach (pg_cron vs frontend check) with user before implementing.
+3. Stabilize auth redirects: Google login should route clients to `/cuenta` and admins to `/admin`.
+4. Finish OTP/code-based signup, resend code, use different email, and forgot-password flows.
+5. Complete the client portal: pending, confirmed, cancelled, and historical appointments.
+6. Add admin-managed services/prices CRUD.
+7. Income dashboard (revenue by period).
+8. Implement Google Places Autocomplete for home-visit addresses.
+9. Custom domain configuration (currently on massage-therapist-tau.vercel.app).
+
+## Applied Supabase Migrations
+
+| # | File | Status |
+|---|---|---|
+| 0015 | `grouped_appointment_requests.sql` | ✅ Applied to production |
+| 0016 | `clients_table_and_fk.sql` | ✅ Applied to production — 14 clients backfilled |

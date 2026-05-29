@@ -1,6 +1,6 @@
 # Current Status
 
-Last updated: 2026-05-29
+Last updated: 2026-05-29 (session 2 — admin panel UX + clients table)
 
 This file is the first document a future AI agent should read. It captures where the project stands now and what should happen next.
 
@@ -40,35 +40,44 @@ Historical path:
 
 The historical path is a symlink to the canonical path.
 
-## Current Git State Warning
+## Current Git State
 
-At the time this handover package was created, the repository had uncommitted changes from ongoing work.
+Branch: `main`. All changes committed and pushed. Repo is clean.
 
-Future agents must run:
+Recent commits (newest first):
+- `add778c` fix: user selector iOS sheet positioning + admin session handling
+- `5994da7` feat: user selector sheet on landing page icon
+- `6a0bf91` fix: user icon session awareness on landing page
+- `560654f` fix: user icon links to /admin directly
+- `92cae1e` fix: admin clients UX — delete modal, email editing, compact mobile panel
+- `d37cd91` feat: real clients table (Option B) — CRUD from admin panel
+- `a35d069` feat: admin panel UX improvements — mobile login, solicitudes, clientes
 
-```bash
-git status --short --branch
-```
+Future agents must run `git status --short --branch` before editing.
 
-before editing.
+## Completed This Session (2026-05-29 session 2)
 
-Known changed/untracked areas from the recent audit:
+### Admin panel mobile UX
+- Login button on `/admin` scrolls to auth form (was silently returning).
+- User icon on landing: session-aware selector with bottom sheet (mobile) and dropdown (desktop).
+  - Admin session active → solid black icon → `/admin` directly.
+  - No session / client session → sheet with "Soy paciente" (→ `/cuenta`) and "Panel profesional" (→ `/admin`).
+  - Sheet moved to root DOM level to fix iOS Safari `position: fixed` bug inside `backdrop-blur` header.
+- Solicitudes: "Futuros" filter tab removed.
+- Solicitudes: filter tabs now scroll horizontally on mobile (no wrapping).
+- Solicitudes: search input full-width on mobile.
+- Dashboard KPIs: always 3-column grid, compact padding/text on mobile, heading smaller on mobile.
 
-- `docs/PROJECT_RECOVERY.md`
-- `skills/login-auth-screen/SKILL.md`
-- `skills/login-auth-screen/SKILL 2.md`
-- `src/components/BookingApp.tsx`
-- `src/components/ClientPortalPage.tsx`
-- `src/lib/booking.ts`
-- `src/lib/supabase/bookings.ts`
-- `src/lib/notifications/*`
-- `src/lib/email/*`
-- notification API routes
-- `src/app/api/notifications/appointment-requested-group/`
-- `supabase/migrations/0015_grouped_appointment_requests.sql`
-- `supabase/queries/rollback_0015_grouped_appointment_requests.sql`
-
-Do not overwrite these without reading them.
+### Clients table (migration 0016) — Option B full implementation
+- New table `clients`: email (unique lowercase), name, phone, notes, timestamps.
+- `client_id uuid FK` added to `appointments` (on delete set null).
+- BEFORE INSERT trigger `sync_appointment_client`: auto creates/updates client on every new booking — existing RPCs (`request_public_appointment`, `request_grouped_appointments`) unchanged.
+- Backfill: 14 clients created from existing appointments, all FKs linked.
+- RLS: admin-only via `is_admin()`.
+- `update_client` and `delete_client` RPCs (auth-gated).
+- Frontend: `Client` type, `loadAdminClients`, `updateClient` (direct table update, supports email), `deleteClient` in `bookings.ts`.
+- `AdminClients` now reads from real DB (not derived from appointments).
+- `AdminClientCard`: inline edit form (name, email, phone, notes), delete with modal confirmation, "Ver solicitudes" shortcut navigates to Solicitudes filtered by client email.
 
 ## Completed P0 Fixes
 
@@ -354,29 +363,15 @@ When testing real booking:
 
 Priority order:
 
-1. Review git status and commit/branch strategy before more code changes.
-2. Run `npm run build` from canonical path and fix any build errors.
-3. Verify current production and local auth redirect behavior:
-   - Admin -> `/admin`.
-   - Client Google login -> `/cuenta`.
-4. Decide and implement branded auth email/code flow:
-   - Supabase custom templates/SMTP, or a controlled OTP pattern.
-5. Verify migration 0015:
-   - Is it applied?
-   - Is it tracked?
-   - Does grouped request work?
-6. Redesign admin panel in smaller scoped blocks:
-   - Layout/sidebar/mobile nav first.
-   - Panel KPIs next.
-   - Agenda timeline next.
-   - Solicitudes cards next.
-7. Implement Google Places Autocomplete for address fields.
-8. Build admin services CRUD.
-9. Build admin business profile/landing configuration.
-10. Build income dashboard/manual revenue entries.
-11. Configure verified Resend domain.
-12. Configure custom domain.
-13. Plan multi-tenant schema before any platform-wide changes.
+1. **Verify mobile UX** (needs phone login): tabs en Solicitudes scroll horizontal OK, "Ver solicitudes" en Clientes funciona, editar/eliminar cliente desde mobile.
+2. **Auto-expire pendientes vencidos**: marcar `declined` donde `status = 'pending_approval'` y `starts_at < now()`. Consultar al usuario qué implementación prefiere (pg_cron, check al cargar, o función manual).
+3. **Google OAuth redirect**: clientes → `/cuenta`, admins → `/admin`. Hoy puede ir a `/admin#`.
+4. **OTP/código en auth de clientes**: reemplazar magic link de Supabase con flujo de código para evitar branding de Supabase.
+5. **Portal clientes `/cuenta`**: historial de turnos, separar pending/confirmed/cancelled, cancelación elegible.
+6. **Admin servicios CRUD**: precios y duración editables desde el panel (hoy hardcodeados en `booking.ts`).
+7. **Income dashboard**: ingresos por período.
+8. **Custom domain**: configurar dominio propio (hoy en massage-therapist-tau.vercel.app).
+9. Google Places Autocomplete para direcciones a domicilio.
 
 ## Notes for Future Agents
 
