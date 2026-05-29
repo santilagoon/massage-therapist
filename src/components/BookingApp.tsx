@@ -2101,10 +2101,6 @@ function AdminDashboard({
   const selectedDateActive = selectedDateAppointments.filter((appointment) =>
     ["confirmed", "pending_approval"].includes(appointment.status),
   );
-  const pendingRequests = appointments
-    .filter((appointment) => appointment.status === "pending_approval")
-    .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
-
   return (
     <section className="grid gap-8">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
@@ -2135,29 +2131,15 @@ function AdminDashboard({
         <AdminKpiCard label={t.dayAppointments} value={selectedDateActive.length} suffix={t.appointmentsUnit} inverted />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(22rem,0.8fr)]">
-        <div className="order-2 xl:order-1">
-          <AdminDayTimeline
-            appointments={selectedDateAppointments}
-            blocks={selectedDateBlocks}
-            isLoading={isLoading}
-            locale={locale}
-            services={services}
-            t={t}
-            onStatusChange={onStatusChange}
-          />
-        </div>
-        <div className="order-1 xl:order-2">
-          <AdminPendingPanel
-            appointments={pendingRequests}
-            isLoading={isLoading}
-            locale={locale}
-            services={services}
-            t={t}
-            onStatusChange={onStatusChange}
-          />
-        </div>
-      </div>
+      <AdminDayTimeline
+        appointments={selectedDateAppointments}
+        blocks={selectedDateBlocks}
+        isLoading={isLoading}
+        locale={locale}
+        services={services}
+        t={t}
+        onStatusChange={onStatusChange}
+      />
     </section>
   );
 }
@@ -2367,83 +2349,6 @@ function AdminDayTimeline({
   );
 }
 
-function AdminPendingPanel({
-  appointments,
-  isLoading,
-  locale,
-  services,
-  t,
-  onStatusChange,
-}: {
-  appointments: Appointment[];
-  isLoading: boolean;
-  locale: Locale;
-  services: typeof fallbackServices;
-  t: Record<string, string>;
-  onStatusChange: (id: string, status: AppointmentStatus) => Promise<void>;
-}) {
-  return (
-    <aside className="grid gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold text-[#111111]">{t.pendingRequestsTitle}</h2>
-        <span className="grid h-8 min-w-8 place-items-center bg-[#111111] px-2 text-sm font-semibold text-white">
-          {appointments.length}
-        </span>
-      </div>
-
-      {appointments.length === 0 ? (
-        <p className="border border-[#d7d7d7] bg-white p-5 text-sm text-[#666666]">
-          {t.noFilteredAppointments}
-        </p>
-      ) : null}
-
-      <div className="grid gap-3">
-        {appointments.slice(0, 4).map((appointment) => {
-          const service = findServiceInList(appointment.serviceId, services);
-
-          return (
-            <article key={appointment.id} className="border border-[#d7d7d7] bg-white">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 p-5">
-                <div>
-                  <h3 className="truncate text-base font-semibold text-[#111111]">{appointment.patientName}</h3>
-                  <p className="mt-2 text-sm text-[#666666]">
-                    {service.title[locale]} - {service.durationMinutes} min
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-mono text-base font-semibold text-[#111111]">
-                    {formatTimeOnly(appointment.startsAt, locale)}
-                  </p>
-                  <p className="mt-1 text-[0.65rem] uppercase tracking-[0.08em] text-[#666666]">
-                    {formatSummaryDate(appointment.startsAt, locale)}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 border-t border-[#d7d7d7]">
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => void onStatusChange(appointment.id, "declined")}
-                  className="h-12 cursor-pointer text-sm font-semibold uppercase tracking-[0.08em] text-[#404040] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  x {t.decline}
-                </button>
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => void onStatusChange(appointment.id, "confirmed")}
-                  className="h-12 cursor-pointer bg-[#111111] text-sm font-semibold uppercase tracking-[0.08em] text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  OK {t.approve}
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </aside>
-  );
-}
 function AdminRequests({
   appointments,
   filter,
